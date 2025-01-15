@@ -1,168 +1,308 @@
-class box.Frutiz extends box.Standard {
+class win.search.Frutiz extends win.Search {//}
 
-	var user:String;
-	var frutizInfo:FrutizInfo;
-	var group:String;
 	
-	function Frutiz(obj){
-		//_root.test+="[boxFrutiz] init()\n"
-		this.winType = "winFrutiz";
+	//CONSTANTES
+	var blocMax:Number = 6
+	
+	// VARIABLES
+	var infoCountry:String;//[Lang.fv("subscribe.country_combo_title")];
+	var infoRegion:String;//[Lang.fv("subscribe.country_combo_title")];
+	
+	function Frutiz(){
+		_root.test+="[win.search.Frutiz] init()\n"
+		this.init();
+	}
+	
+	function init(){
+		super.init();
 		
-		for(var n in obj){
-			this[n] = obj[n];
+		if( infoCountry == undefined ) infoCountry = "france;bresil;canada;gomoland;zealmy"
+		infoRegion = "Choisissez un pays !"
+		
+		this.endInit();
+		//
+	};
+	
+	function updateSearchFrame(){
+		super.updateSearchFrame()
+		if( !this.flAdvance ){
+			this.doc.removeVariableListener("country","country_combo_on_change");
+		}else{
+			this.doc.addVariableListener("country",{obj: this.box,method: "onCountryChange",uniq: "country_combo_on_change"});
+		}
+	}
+	
+	function getSearchLines(){
+		var lines = new Array();
+		
+		var list = [
+			{
+				type:"text",
+				width:60,
+				param:{
+					text:"pseudo :"
+				}
+			},
+			{
+				type:"input",
+				//width:80,
+				param:{
+					variable:"pseudo",
+					fieldProperty: { maxChars:18, restrict:"0-9a-zA-Z" }
+				}
+			},
+			{	type:"spacer",	width:4	},
+			{	type:"button",
+				param:{
+					initObj:{txt:"ok"},
+					buttonAction:{onPress:[{obj:this,method:"launchSearch"}]}
+				}
+			}	
+		]
+		_root.test+="this.flAdvanceAvailable("+this.flAdvanceAvailable+")\n"
+		if( this.flAdvanceAvailable ){
+			var o = {
+				type:"button",
+				dx:3,
+				param:{
+					initObj:{txt:"avancée"},
+					buttonAction:{onPress:[{obj:this,method:"toggleAdvance"}]}
+				}			
+			}
+			list.push(o)
+		}
+			
+		
+		lines.push({list:list})
+		
+		return lines
+		
+	}	
+	
+	function getAdvanceSearchLines(){
+		var lines = new Array();
+		
+		// SEXE AGE
+		var list = [
+			{
+				type:"text",
+				width:48,
+				param:{
+					text:"sexe :"
+					
+				}
+			},
+			{	
+				type:"radio",
+				width: 76,
+				param:{
+					variable: "gender",
+					val: "M",
+					text:"Masculin"// Lang.fv("gender.M")
+				}
+			},
+			{
+				type:"radio",
+				width: 76,
+				param:{
+					variable: "gender",
+					val: "F",
+					text:"Feminin" //Lang.fv("gender.F")
+				}
+			},
+			{	
+				type:"radio",
+				width: 60,
+				param:{
+					variable: "gender",
+					val: "",
+					text: "Tous"
+				}
+			}		
+		]
+		lines.push({list:list})
+		
+		// AGE
+		var list = [
+			{
+				type:"text",
+				width:66,
+				param:{
+					text:"age min :"
+					
+				}
+			},
+			{
+				type:"input",
+				width:40,
+				param:{
+					variable:"ageMin",
+					fieldProperty: {maxChars: 2,restrict: "0-9"}
+
+				}
+			},
+			{	type:"spacer",	width:12	},
+			{
+				type:"text",
+				width:66,
+				param:{
+					text:"age max :"
+				}
+			},			
+			{
+				type:"input",
+				width:40,
+				param:{
+					variable:"ageMax",
+					fieldProperty: {maxChars: 2,restrict: "0-9"}
+				}
+			}
+		]
+		lines.push({list:list})		
+		
+		// PAYS
+		var list = [
+			{	type:"text",
+				width:50,
+				param:{
+					text:"pays :"
+				}
+			},
+			{	type:"comboBox",
+				big:100,
+				param:{
+					name: "country",
+					variable: "country",
+					text: this.infoCountry
+				}
+			}
+		]	
+		lines.push({list:list})	
+		
+		// REGION
+		var list = [
+			{	type:"text",
+				width:50,
+				param:{
+					text:"region :"
+				}
+			},
+			{	type:"comboBox",
+				big:100,
+				param:{
+					name: "region",
+					variable: "region",
+					text: this.infoRegion
+				}
+			}
+		]	
+		lines.push({list:list})		
+		
+		//
+		return lines;
+	}
+
+	function onUpdateSearchFrame(){
+		if(this.flAdvance){
+			this.doc.addVariableListener("country",{obj: this.box,method: "onCountryChange",uniq: "country_combo_on_change"});
+		}else{
+			this.doc.removeVariableListener("country","country_combo_on_change");
+		}
+	}
+	
+	function updateRegionCombo(t){
+		this.doc.console.region.text = t;
+		this.doc.console.region.initElementList();
+		this.doc.setVariable("region",0);
+		this.doc.console.region.valSetTo(0); // pour s'assurer que l'affichage est bien mis à jour	
+	}
+
+	function displayBloc(list,page,searchMax){
+		// BLOCS
+		this.cleanPage();
+		var w = mWidth 
+		var h = 50
+		for(var i=0; i<list.length; i++){
+			var info = list[i]
+
+			
+			//*
+			var args={
+				info:info
+			}
+			var frame = {
+				name:"bloc"+i,
+				link:"cpSearchSlot",
+				type:"compo",
+				//margin:margin,
+				flBackground:false,
+				mainStyleName:"frSheet",
+				min:{w:w,h:h},
+				args:args
+			}
+			this.main.showFrame.newElement(frame)
+			//*/
 		}
 		
-		this.frutizInfo = new FrutizInfo({user: this.user,box: this});
-		if(this.winOpt==undefined) this.winOpt = new Object();
-		this.winOpt.iconList = this.getIconList();
+		
+		// PAGE
+		var pageMax = Math.ceil(searchMax/blocMax)
+		var str = page+"/"+pageMax+" - "+searchMax+" réponse"
+		if(searchMax>1)str += "s";
+		this.pageSelector.setText(str)
+		
+		this.frameSet.update();
+		/*
+		
+		this.pos.w = 0
+		this.pos.h = 0
+		this.updateSize();
+		this.frameSet.update();
+		*/
+		
 	}
 	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		super.preInit();	
+	function cleanPage(){
+		for(var i=0; i<this.blocMax; i++ ){
+			this.main.showFrame.removeElement("bloc"+i);
+		}		
 	}
-
-	function init(slot,depth){
-		// Securité pour éviter bcp de pbs
-		if(this.user == undefined){
-			_global.debug("WARN: box.Frutiz try to init whithout this.user");
-			this.close();
-			return;
-		}
 	
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
+	function launchSearch(){
+		//*
+		if(!Key.isDown(Key.ENTER)){
+			super.launchSearch()
 		}else{
-			// change mode init
-		}
-
-		return rs;
-	}
-	
-	function close(){	
-		this.frutizInfo.onKill();
-		_global.frutizInfMng.unsetBox(this.user);
-		super.close();
-	}
-	
-	function onUserNotFound(){
-		this.close();
-	}
-	
-	function getIconList(){
-		var arr = new Array();
-		if(this.user == _global.me.name){
-			arr.push({frame: 10,tipId: "frutiz_edit_info",callBack: {obj: _global.uniqWinMng,method: "open",args: "editinfo"}});
-			//arr.push({frame: 11,tipId: "frutiz_edit_mail",callBack: {obj: this,method: "editMail"}});
-		}else{
-			arr.push({frame: 2,tipId: "frutiz_chat_now",callBack: {obj: _global,method: "chatNow",args: this.user}});
-			arr.push({frame: 3,tipId: "frutiz_new_mail",callBack: {obj: _global,method: "openMail",args: this.user+"@frutiparc.com"}});
-			arr.push({frame: 13,tipId: "frutiz_blog",callBack: {obj: _global,method: "openBlog",args: this.user}});
-			if(!_global.myContactListCache.isIn(this.user)){
-				arr.push({frame: 4,tipId: "frutiz_add_to_contact",callBack: {obj: _global.fileMng,method: "addUserToContact",args: this.user,flNotClose: true}});
-			}
-			if(!_global.myBlackListCache.isIn(this.user)){
-				arr.push({frame: 5,tipId: "frutiz_add_to_blacklist",callBack: {obj: this,method: "addUserToBlackList"}});
-			}else{
-				arr.push({frame: 12,tipId: "frutiz_remove_from_blacklist",callBack: {obj: _global.fileMng,method: "removeUserFromBlackList",args: this.user,flNotClose: true}});
-			}
-			if(_global.me.flMode){
-				if(this.group != undefined){
-					arr.push({frame: 6,tipId: "frutiz_kick",callBack: {obj: this,method: "kick"}});
+			var list = new Array();
+			for( var i=0; i<4; i++ ){
+				var o = 	{
+					xpLevel:1,
+					xpCompletionRate:0.75,
+					nickname:"bumdum",
+					gender:"M",
+					age:26,
+					birthday:"20-01-1978",
+					country:"France",
+					countryCode:1,
+					sregion:"Gironde",
+					city:"Bordeaux",
+					fbouille:"0000020K01000d0301040t00",
+					presence:0,//(0,1,2),
+					status:{}			
 				}
-				arr.push({frame: 7,tipId: "frutiz_ban",callBack: {obj: this,method: "ban",flNotClose: true}});
-				//arr.push({frame: 14,tipId: "frutiz_unban",callBack: {obj: this,method: "unban",flNotClose: true}});
-				arr.push({frame: 8,tipId: "frutiz_mute",callBack: {obj: this,method: "mute"}});
-				//arr.push({frame: 9,callBack: {obj: this,method: "gomu"}});
-			}
-
-			if(_global.me.flAnimator && FEString.startsWith(this.group,"quizz")){
-				if( !_global.me.flMode ){
-					arr.push({frame: 6,tipId: "frutiz_kick",callBack: {obj: this,method: "kick"}});
-				}
-				arr.push({frame: 7,tipId: "frutiz_banquick",callBack: {obj: this,method: "banQuick",flNotClose: true}});
-			}else if( _global.me.flAnimator ){
-				//arr.push({frame: 14,tipId: "frutiz_unbanquick",callBack: {obj: this,method: "unbanQuick",flNotClose: true}});
-			}
-		}
-		return arr;
-	}
+				list.push(o)
+			}	
 	
-	function execCallBack(cb){
-		cb.obj[cb.method](cb.args);
-		if(!cb.flNotClose){
-			this.tryToClose();
+			displayBloc(list,0,124)		
 		}
 	}
 	
-	function kick(){
-		_global.mainCnx.cmd("kick",{u: this.user,g: this.group});
-	}
 	
-	function ban(){
-    if(Key.isDown(Key.CONTROL)){
-			
-			_global.mainCnx.cmd("ban",{u: this.user,g: "0"});
-			this.tryToClose();
-
-		}
-	}
-
-	function unban(){
-    if(Key.isDown(Key.CONTROL)){
-			
-			_global.mainCnx.cmd("unban",{u: this.user,g: "0"});
-			this.tryToClose();
-
-		}
-	}
-
-	function banQuick(){
-		if(Key.isDown(Key.CONTROL)){
-			var t = _global.servTime.getTime() + 24 * 60 * 60 * 1000; // time + 24 hours
-			var end = Lang.formatDateTime(t,"prog_server");
-			_global.mainCnx.cmd("ban",{u: this.user,g: this.group,e: end});
-			this.tryToClose();
-    }
-	}
-
-	function unbanQuick(){
-		if(Key.isDown(Key.CONTROL)){
-			_global.mainCnx.cmd("unban",{u: this.user,g: "quizz"});
-			this.tryToClose();
-    }
-	}
-
-
-	function mute(){
-		var t = _global.servTime.getTime() + 10 * 60 * 1000; // time + 10 minutes
-		var end = Lang.formatDateTime(t,"prog_server");
-		_global.mainCnx.cmd("mute",{u: this.user,e: end});
-	}
 	
-	function editMail(){
-		_global.uniqWinMng.open("confirm",undefined,{flCloseAuth: true});
-	}
-	
-	function getUrl(u){
-		getURL(u,"_blank");
-	}
-	
-	function addUserToBlackList(){
-		_global.topDesktop.addBox(new box.Alert({
-			text: Lang.fv("frutiz.add_user_to_blacklist",{u: this.user}),
-			butActList: [
-				{name: "Oui",action: {obj: _global.fileMng,method: "addUserToBlackList",args: this.user}},
-				{name: "Non"}
-			]
-		}));		
-	}
+//{
+};
 
-	function onWheel(delta){
-		this.window.scrollText(-10 * delta);
-	}
-}
+
+
+
+

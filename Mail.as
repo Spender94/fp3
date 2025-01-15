@@ -1,191 +1,365 @@
-class box.Mail extends box.Standard{
-	var to:String;
-	var subject:String;
-	var content:String;
-	var uid:String;
-	var saveToOutbox:Boolean;
-	
-	function Mail(obj){
-		this.winType = "winMail";
-		//_root.test+="boxMail init\n"
-		for(var n in obj){
-			this[n] = obj[n];
-		}
-		this.title = Lang.fv("mail.write_new_mail");
-	}
-	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		super.preInit();
-		
-		if(this.winOpt == undefined) this.winOpt = new Object();
-		this.winOpt.fromName = _global.me.name+" &lt;"+_global.me.name+"@frutiparc.com&gt;";
-		
-		this.saveToOutbox = _global.userPref.getPref("save_to_outbox");
-		if(this.saveToOutbox == undefined) this.saveToOutbox = true;
-	}
+class win.Mail extends win.Advance{//}
 
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
-			if(this.to != undefined){
-				this.window.setRecipient(this.to);
-			}
-			if(this.content != undefined){
-				this.window.setContent(this.content);
-			}
-			if(this.subject != undefined){
-				this.window.setSubject(this.subject);
-			}
-			this.window.setCbOutbox(this.saveToOutbox);
-		}else{
-			// change mode init
-		}
-
-		return rs;
-	}
+	// a recevoir
+	var fromName:String;
+	var mainDoc:cp.Document;
+	var infoDoc:cp.Document;
+	var panelToolDoc:cp.Document;
+	var butDoc:cp.Document;
 	
-	function getFormValue(){
-		this.content = this.window.getContent();
-		this.subject = this.window.getSubject();
-		this.to = this.window.getRecipient();
-		this.saveToOutbox = this.window.getCbOutbox();
-	}
+	var ati:AdvancedTextInput;
 	
-	function setFormValue(){
-		//_global.debug("Set content: "+FEString.unHTML(this.content));
-		this.window.setContent(this.content);
-		this.window.setSubject(this.subject);
-		this.window.setRecipient(this.to);
-		this.window.setCbOutbox(this.saveToOutbox);
-	}
-	
-	function sendMail(to,subject,content){
-		this.getFormValue();
-	
-		// Check to and subject length
-		if(this.to.length == 0){
-			_global.openAlert(Lang.fv("mail.to_empty"));
-			return;
-		}else if(this.subject.length == 0){
-			_global.openAlert(Lang.fv("mail.subject_empty"));
-			return;
-		}
+	function Mail(){
+		this.init();
 		
-		this.window.displayWait();
-		
-		var content = FEString.simplifyHTML(this.content);
-	
-		var loader:HTTP = new HTTP("fm/sendmail",{t: this.to,s: this.subject,c: content,o: this.saveToOutbox?'1':'0'},{type: "xml",obj: this,method: "onSend"},"POST");
+		//this.minimum = {w: 500,h: 300}
 	}
 	
-	function onSend(success,xml){
-		if(!success){
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(Lang.fv("error.host_unreachable"));
-		}
-		xml = xml.lastChild;
-		if(xml.nodeName != "r"){
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(Lang.fv("error.http.1"));
-		}
+	function init(){
+		//_root.test+="winMail init\n"
+		if(this.fromName==undefined)this.fromName= Lang.fv("unknow_user")
+		super.init();
+		this.endInit();
+	}
+	
+	function initFrameSet(){
+		super.initFrameSet();
+		this.attachInfo();
+		this.attachEditTool();
+		this.attachMain();
+		this.attachEndButton();
 		
-		if(xml.attributes.k != undefined){
-			var errStr = "";
-			if(xml.hasChildNodes()){
-				if(xml.attributes.k != "1"){
-					errStr += Lang.fv("error.http."+xml.attributes.k)+"\n";
-				}
-				for(var n=xml.firstChild;n.nodeType>0;n=n.nextSibling){
-					if(n.attributes.s != undefined){
-						errStr += n.attributes.s+": "+Lang.fv("error.http."+n.attributes.k)+"\n";
-					}else{
-						errStr += Lang.fv("error.http."+n.attributes.k)+"\n";
-					}
-				}
-			}else{
-				errStr += Lang.fv("error.http."+xml.attributes.k);
-			}
+		this.ati = new AdvancedTextInput({
+			field: this.mainDoc.console.content,
 			
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(errStr);
-		}
+			docPanel: this.panelToolDoc,
+			btBold: "flBold",
+			btItalic: "flItalic",
+			btUnderline: "flUnderline",
+			cbColor: "",
+			cbSize: "textSize"
 		
-		_global.openAlert(Lang.fv("mail.send_success"),Lang.fv("mail.send_success_title"));
-		this.close();
+		});
 	}
 	
-	function saveDraft(to,subject,content){
-		_global.openErrorAlert("L'enregistrement de vos brouillons sera bientôt disponible.");
-		return;
-	
-		this.getFormValue();
-		this.window.displayWait();
-		
-		var content = FEString.simplifyHTML(this.content);
-		
-		if(this.uid != undefined){
-			var loader:HTTP = new HTTP("fm/sd",{t: this.to,s: this.subject,c: content,u: this.uid},{type: "xml",obj: this,method: "onSaveDraft"},"POST");
-		}else{
-			var loader:HTTP = new HTTP("fm/sd",{t: this.to,s: this.subject,c: content},{type: "xml",obj: this,method: "onSaveDraft"},"POST");
-		}
-	}
-	
-	function onSaveDraft(success,xml){
-		if(!success){
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(Lang.fv("error.host_unreachable"));
-		}
-		xml = xml.lastChild;
-		if(xml.nodeName != "r"){
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(Lang.fv("error.http.1"));
-		}
-		
-		if(xml.attributes.k != undefined){
-			var errStr = "";
-			if(xml.hasChildNodes()){
-				if(xml.attributes.k != "1"){
-					errStr += Lang.fv("error.http."+xml.attributes.k)+"\n";
-				}
-				for(var n=xml.firstChild;n.nodeType>0;n=n.nextSibling){
-					if(n.attributes.s != undefined){
-						errStr += n.attributes.s+": "+Lang.fv("error.http."+n.attributes.k)+"\n";
-					}else{
-						errStr += Lang.fv("error.http."+n.attributes.k)+"\n";
-					}
-				}
-			}else{
-				errStr += Lang.fv("error.http."+xml.attributes.k);
-			}
-			
-			this.window.removeWait();
-			this.setFormValue();
-			return _global.openErrorAlert(errStr);
-		}
-		
-		_global.openAlert(Lang.fv("mail.savedraft_success"),Lang.fv("mail.savedraft_success_title"));
-		this.close();
-	}
-	
-	function onDrop(obj){
-		if(obj.type == "contact"){
-			var t = this.window.getRecipient();
-			t = obj.desc[0]+" , "+t;
-			this.window.setRecipient(t);
-		}
+	function onClose(){
+		this.ati.onKill();
+		super.onClose();
 	}
 
-	function onWheel(delta){
-		this.window.scrollText(-10 * delta);
+	function attachInfo(){
+		var pageObj,args,frame;
+		var h = 20
+		var w = 60
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	height:h,
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.from")
+							}
+						},
+						{	type:"text",
+							big:1,
+							param:{
+								text:this.fromName,
+								flBackground:true,
+								fieldProperty: {html: 1}
+							}
+						}						
+					]
+				},
+				{	height:h,	
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.to")
+							}
+						},
+						{	type:"input",
+							big:1,
+							param:{
+								variable:"recipient",
+								name: "recipient",
+								fieldProperty: {dropBox: this.box}
+							}
+						}						
+					]
+				},
+				{	height:h,	
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.subject")
+							}
+						},
+						{	type:"input",
+							big:1,
+							param:{
+								variable:"subject",
+								name: "subject"
+							}
+						}						
+					]
+				}				
+			]
+		}
+		args = {
+			flDocumentFit:true,
+			//flBackground:true,
+			pageObj:pageObj
+		}
+		frame = {
+			name:"infoFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			min:{w:200,h:0},				
+			args:args
+		}
+		this.infoDoc = this.main.newElement( frame, 0 )
+	
 	}
+	
+	function attachEditTool(){
+		var pageObj,args,frame;
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	height:28,
+					list:[
+						{	type:"link",
+							link:"butFlag",
+							width:20,
+							param:{
+								variable: "flBold",
+								link:"butFlagSmallPink",
+								frame:2
+							}
+						},
+						{	type:"link",
+							link:"butFlag",
+							width:20,
+							param:{
+								variable: "flItalic",
+								link:"butFlagSmallPink",
+								frame:3
+							}
+						},
+						{	type:"link",
+							link:"butFlag",
+							width:20,
+							param:{
+								variable: "flUnderline",
+								link:"butFlagSmallPink",
+								frame:4
+							}
+						},
+						{	type:"spacer",
+							big:1
+						},	
+						{	type:"comboBox",
+							width:100,
+							dy:4,
+							param:{
+								variable:"textSize",
+								def:"normal",
+								text:Lang.fv("mail.font_size")
+							}
+						}
+					]
+				}				
+			]
+		}
+		args = {
+			flDocumentFit:true,
+			pageObj:pageObj
+		}
+		frame = {
+			name:"editToolFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			min:{w:200,h:0},				
+			args:args
+		}
+		this.panelToolDoc = this.main.newElement( frame, 1 )
+	}
+	
+	function attachMain(){
+		var pageObj,args,frame;
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	big:1,
+					list:[
+						{	type:"input",
+							big:1,
+							param:{
+								variable:"content",
+								name:"content",
+								flBackground:false,
+								flSingleLine:false,
+								textFormat: {size: 12},
+								fieldProperty: {html: true,multiline: true,wordWrap: true,myBox: this.box,dropBox: this.box},
+								colorToUse: "overdark"
+							}
+						}
+					]
+				}
+			]
+		}
+		args = {
+			//flDocumentFit:true,
+			pageObj:pageObj,
+			flGravity:false,
+			flMask:true
+		}
+		frame = {
+			name:"mainFrame",
+			link:"cpDocument",
+			type:"compo",
+			flBackground:true,
+			mainStyleName:"frDef",
+			min:{w:200,h:120},				
+			args:args
+		}
+		this.mainDoc = this.main.newElement( frame, 2 )
+		this.main.bigFrame = this.main.mainFrame;		
+	}
+	
+	function attachEndButton(){
+	
+		var pageObj,args,frame;
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	
+					list:[
+						{	type:"spacer",
+							width:4
+						},
+						{	type: "checkBox",
+							width: 210,
+							param: {
+								variable: "savetooutbox",
+								text: Lang.fv("mail.add_in_outbox")
+							}							
+						},
+						{	type:"spacer",
+							big:1
+						},	
+						/*
+						{	type:"button",
+							param:{
+								initObj:{txt:Lang.fv("mail.save")},
+								buttonAction:{onPress:[{obj:this,method:"saveMail"}]}
+							}
+						},
+						*/
+						{	type:"button",
+							param:{
+								initObj:{txt:Lang.fv("mail.send")},
+								buttonAction:{onPress:[{obj:this,method:"sendMail"}]}
+							}
+						}						
+					]
+				}				
+			]
+		}
+		args = {
+			flDocumentFit:true,
+			pageObj:pageObj
+		}
+		var margin = Standard.getMargin();
+		margin.x.min = 4;
+		margin.x.ratio = 0;
+		margin.y.min = 6;
+		margin.y.ratio = 0.66;
+		frame = {
+			name:"infoFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			margin:margin,
+			min:{w:414,h:0},				
+			args:args
+		}
+		this.butDoc = this.margin.bottom.newElement( frame )
+			
+	}
+	
+	function displayWait(){
+		this.main.removeElement("infoFrame");
+		this.main.removeElement("editToolFrame");
+		this.margin.bottom.removeElement("infoFrame");
+		
+		this.mainDoc.console.content.setText("");
+		this.mainDoc.displayWait();
+		
+		this.frameSet.update();
+	}
+	
+	function removeWait(){
+		this.attachInfo();
+		this.attachEditTool();
+		this.attachEndButton();
+		
+		this.mainDoc.removeWait();
+
+		this.frameSet.update();
+	}
+	
+	//TODO FUNCTION:
+	function setRecipient(r){
+		this.infoDoc.console.recipient.setText(r);
+	}
+	
+	function getRecipient(){
+		return this.infoDoc.card.recipient.value;
+	}
+	
+	function setSubject(r){
+		this.infoDoc.console.subject.setText(r);
+	}
+	
+	function setCbOutbox(v){
+		this.butDoc.setVariable("savetooutbox",v);
+	}
+	
+	function getSubject(){
+		return this.infoDoc.card.subject.value;
+	}
+	
+	function setContent(r){
+		r = this.mainDoc.console.content.addHtmlStyle(r);
+		this.mainDoc.console.content.setText(r);
+		this.ati.setDefaultNewTextFormat();
+	}
+	
+	function getContent(){
+		return this.mainDoc.console.content.field.htmlText;
+	}
+	
+	function getCbOutbox(){
+		return this.butDoc.card.savetooutbox.value;
+	}
+	
+/*	function saveMail(){
+		this.box.saveDraft();
+	}
+*/
+	function sendMail(){
+		this.box.sendMail();
+	}
+	
+	function scrollText(delta){
+		this.mainDoc.mask.y.path.pixelScroll(delta);
+	}
+//{	
 }

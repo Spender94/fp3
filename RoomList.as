@@ -1,93 +1,111 @@
-class box.RoomList extends box.Standard{
+class win.RoomList extends win.Advance{//}
 	
-	function RoomList(obj){
-		this.winType = "winRoomList";
-		//_root.test+="boxRoomList\n"
-		for(var n in obj){
-			this[n] = obj[n];
-		}
-		this.title = Lang.fv("public_chat");
-		_global.uniqWinMng.setBox("roomList",this);
-	}
-	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		super.preInit();	
+	var mcTool:cp.Document;
+	var mcRoomList:cp.RoomList;
+
+	/*-----------------------------------------------------------------------
+		Function: Shop()
+	 ------------------------------------------------------------------------*/	
+	function RoomList(){
+		this.init();	
 	}
 
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
-			_global.mainCnx.addListener("channelList",this,"onChannelList");
-			_global.mainCnx.cmd("channellist");
-			
-		}else{
-			// change mode init
-		}
-
-		return rs;
-	}
-	
-	function close(){
-		_global.mainCnx.rmListenerCmdObj("channelList",this);
-		_global.uniqWinMng.unsetBox("roomList");
-
-		super.close();
+	/*-----------------------------------------------------------------------
+		Function: init()
+	 ------------------------------------------------------------------------*/	
+	function init(){
+		//
+		super.init();
+		this.endInit();
+		//
 	}
 
-	function sortRand () {
-    if (random(2) == 0) {
-			return -1;
-    }
-    return 1;
-	}
-
-	
-	
-	function onChannelList(node){
-		if(node.attributes.k != undefined){
-			_global.openErroAlert(Lang.fv("error.cbee."+node.attributes.k));
-			return;
-		}
+	/*-----------------------------------------------------------------------
+		Function: initFrameSet()
+	 ------------------------------------------------------------------------*/	
+	function initFrameSet(){
 		
-		var arr = new Array();
-		var spe = new Array();
-		for(var n=node.firstChild;n.nodeType>0;n=n.nextSibling){
-			if(n.nodeName == "g"){
-				if( n.attributes.g == "quizz" ){
-					spe.push({id: n.attributes.g,name: n.firstChild.firstChild.nodeValue.toString(),nbUser: Number(n.attributes.n)});
-				}else{
-					arr.push({id: n.attributes.g,name: n.firstChild.firstChild.nodeValue.toString(),nbUser: Number(n.attributes.n)});
-				}
-			}
-		}
-		arr.sort(this.sortRand);
-		for(var i=0;i<spe.length;i++){
-			arr.push(spe[i]);
-		}
-		this.window.setList(arr);
-	}
-	
-	function join(n){
-		_global.channelMng.open(n);
-		this.close();
-	}
-	
-	function createChannel(n){
-		if(n == undefined || n.length == 0){
-			_global.openErrorAlert(Lang.fv("error.chat.topic_required"));
-			return;
-		}
+		super.initFrameSet();
 		
-		_global.channelMng.create(n);
-		this.close();
+		// ROOMLIST
+		var args = {
+			flMask:true,
+			flWait:true
+		};
+		var frame = {
+			name:"roomListFrame",
+			link:"cpRoomList",
+			type:"compo",
+			flBackground:true,
+			mainStyleName:"frRoomList",
+			min:{w:200,h:240},
+			args:args	
+		};
+		this.mcRoomList = this.main.newElement(frame,0);
+		this.main.bigFrame = this.main.roomListFrame;
+		
+		// ACTION
+		
+		var doc = "<p><l>";
+		doc += "<s w=\"4\"/><b t=\""+Lang.fv("chat.create_channel")+"\" l=\"butPushStandard\" o=\"win\" m=\"createNewRoom\"/><s w=\"10\"/>"
+		doc += "<i v=\"roomName\" dy=\"1\" b=\"1\"></i><s w=\"3\"/>"
+		//doc += "<l l=\"butPush\" ><p link=\"butPushVerySmallPink\" frame=\"2\"><buttonAction><array name=\"onPress\"><o obj=\"win\" method=\"search\"></array></buttonAction></p></l>" 
+		doc += "</l></p>"
+		
+		var margin = Standard.getMargin();
+		margin.x.min = 4;
+		margin.x.ratio = 0;
+		margin.y.min = 6;
+		margin.y.ratio = 0.66;
+				
+		var args={
+			flDocumentFit:true,
+			doc:new XML(doc)
+		};
+		var frame = {
+			type:"compo",
+			name:"frameCreate",
+			link:"cpDocument",
+			mainStyleName:"frSystem",
+			min:{w:260,h:18},
+			margin:margin,
+			args:args
+		};
+		this.mcTool = this.margin.bottom.newElement(frame);
+		
+	
 	}
 	
-	function getIconLabel(){
-		return "winChat";
+	/*-----------------------------------------------------------------------
+		Function: initFrameSet()
+	 ------------------------------------------------------------------------*/	
+	function setList(list){
+		this.mcRoomList.setList(list);
+		this.frameSet.update();
 	}
+	
+	
+	/*-----------------------------------------------------------------------
+		Function: createNewRoom()
+	 ------------------------------------------------------------------------*/	
+	function createNewRoom(){
+		_root.test+="createNewRoom("+this.mcTool.card.roomName.value+")\n"
+		this.box.createChannel(this.mcTool.card.roomName.value)
+	}
+
+	/*-----------------------------------------------------------------------
+		Function: search()
+	 ------------------------------------------------------------------------*/	
+	/*
+	function search(){
+		_root.test+="search("+this.mcTool.card.search.value+")"
+		this.box.search(this.mcTool.card.search.value);
+	}
+	*/
+	
+//{	
 }
+
+
+
+

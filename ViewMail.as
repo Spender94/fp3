@@ -1,108 +1,303 @@
-class box.ViewMail extends box.Standard{
-	
-	var from:String;
-	var to:String;
+class win.ViewMail extends win.Advance{//}
+
+
+	// a recevoir
+	var fromName:String;
+	var toName:String;
 	var subject:String;
-	
-	var fromHTML:String;
-	var toHTML:String;
-	
-	var date:String;
-	var uid:String;
-	var name:String;
-	var desc:Array;
 	var content:String;
+	var date:String;
 	
-	function ViewMail(obj){
-		this.winType = "winViewMail";
-		for(var n in obj){
-			this[n] = obj[n];
-		}
+	// VARIABLES
+	
+	var infoDoc:cp.Document;
+	var mainDoc:cp.Document;
+	
+	var debugIntervalId:Number;
+	
+	
+	function ViewMail(){
+		this.init();
 	}
 	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		super.preInit();	
-	}
-	
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-		if(rs){
-			_global.fileViewMng.setBox(this.uid,this);
+	function init(){
+		//_root.test+="winViewMail init\n"
+		this.date = Lang.fv("please_wait");
+		this.fromName = Lang.fv("please_wait");
+		this.toName = Lang.fv("please_wait");
+		this.subject = Lang.fv("please_wait");
+		super.init();
 		
-			this.setTitle(this.name);
-			this.subject = this.name;
-			
-			this.from = this.desc[0];
-			this.to = this.desc[2];
-			this.fromHTML = FPString.toDisplayMail(this.from);
-			this.toHTML = FPString.toDisplayMail(this.to);
-			
-			var loader = new HTTP("ff/get",{uid: this.uid},{type: "data",obj: this,method: "onGet"});
-		}else{
-			// change mode init
-		}
+		this.pos = {x:50,y:50,w:500,h:400};
+		
+		this.endInit();
+		// DEBUG TEST
+		//this.debugIntervalId = setInterval(this,"debugFunc",5000)
+		
+	}
+	
+	function initFrameSet(){
+		super.initFrameSet();
+		this.attachInfo();
+		//this.attachTool();
+		this.attachMain();
+		this.attachEndButton();
+	}
 
-		return rs;
-	}
-
-	function close(){
-		_global.fileViewMng.unsetBox(this.uid,this);
-		super.close();
+	function setMail(mail){	// {date,from,to,subject,content}
+		//_root.test+="setMail("+mail+")\n"
+		//
+		//mail.content = "<b>bonjour</b>"
+		//
+		
+		this.infoDoc.console.date.setText(mail.date)
+		this.infoDoc.console.from.setText(mail.from)
+		this.infoDoc.console.to.setText(mail.to)
+		this.infoDoc.console.subject.setText(mail.subject)
+		//var content = "<font color=\"#558811\">"+mail.content+"</font>"
+		this.mainDoc.console.content.setText(mail.content);
+		
+		if(this.mainDoc.flWait)this.mainDoc.removeWait();
+		
+		this.main.update();
 	}
 	
-	function onGet(success,dat){
-		if(!success){
-			_global.openErrorAlert(Lang.fv("error.host_unreachable"));
-			this.close();
+	function attachInfo(){
+		var pageObj,args,frame;
+		var h = 20
+		var w = 60
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	height:h,	// DATE
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.date"),
+								textFormat: {align: "right"}
+							}
+						},
+						{	type:"text",
+							big:1,
+							param:{
+								name:"date",
+								text:this.date,
+								fieldProperty: {multiline: false,wordWrap: false}
+								//flBackground:true
+							}
+						}						
+					]
+				},
+				{	height:h,	// SENDING
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.from"),
+								textFormat: {align: "right"}
+							}
+						},
+						{	type:"text",
+							big:1,
+							param:{
+								name:"from",
+								text:this.fromName,
+								fieldProperty: {html: true,multiline: true,wordWrap: true}
+								//flBackground:true
+							}
+						}						
+					]
+				},
+				{	height:h,	// RECEIVING	
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text:Lang.fv("mail.to"),
+								textFormat: {align: "right"}
+							}
+						},
+						{	type:"text",
+							big:1,
+							param:{
+								name:"to",
+								text:this.toName,
+								fieldProperty: {html: true,multiline: false,wordWrap: false}
+							}
+						}						
+					]
+				},
+				{	height:h,	
+					list:[
+						{	type:"text",
+							width:w,
+							param:{
+								text: Lang.fv("mail.subject"),
+								textFormat: {align: "right"}
+							}
+						},
+						{	type:"text",
+							big:1,
+							param:{
+								name:"subject",
+								text:this.subject,
+								fieldProperty: {multiline: false,wordWrap: false}
+							}
+						}						
+					]
+				}				
+			]
 		}
-		var err = FEString.decode62(dat.substr(0,4));
-		if(err != 0){
-			_global.openErrorAlert(Lang.fv("error.http."+err));
-			this.close();
-		}else{
-			_global.fileMng.accessFile(this.uid);
-			this.content = dat.substr(4);
-			this.window.setMail({date: Lang.formatDateString(this.date,"long"),from: this.fromHTML,to: this.toHTML,subject: FEString.unHTML(this.subject),content: this.content});
+		args = {
+			flDocumentFit:true,
+			pageObj:pageObj
 		}
+		frame = {
+			name:"infoFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			min:{w:200,h:0},				
+			args:args
+		}
+		this.infoDoc = this.main.newElement( frame )
+	
 	}
 	
-	function openReply(){
-		if(FEString.startsWith(this.subject.toLowerCase(),"re:") || FEString.startsWith(this.subject.toLowerCase(),"re :")){
-			var subj = this.subject;
-		}else{
-			var subj = "Re: "+this.subject;
+	function attachEndButton(){
+		var doc,args,frame,margin;
+		
+		doc = "<p><l><b t=\""+Lang.fv("mail.move_to_recyclebin")+"\" l=\"butPushStandard\" o=\"win\" m=\"moveToRecycleBin\"/><s b=\"1\"/><b t=\""+Lang.fv("mail.reply")+"\" l=\"butPushStandard\" o=\"win\" m=\"reply\"/><s w=\"8\"/><b t=\""+Lang.fv("mail.forward")+"\" l=\"butPushStandard\" o=\"win\" m=\"forward\"/></l></p>"
+		
+		args = {
+			flDocumentFit:true,
+			doc:new XML(doc)
 		}
+		var margin = Standard.getMargin();
+		margin.x.min = 4;
+		margin.x.ratio = 0;
+		margin.y.min = 6;
+		margin.y.ratio = 0.66;
 		
-		// TODO: ajouter des liens sur les adresses mails
-		var content = Lang.fv("mail.reply_tpl",{d: Lang.formatDateString(this.date,"long"),f: FEString.unHTML(this.from),t: FEString.unHTML(this.to),c: this.content,s: this.subject})
-		
-		_global.desktop.addBox(new box.Mail({to: this.from,subject: subj,content: content}));
-		this.tryToClose();
+		frame = {
+			name:"infoFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			margin:margin,
+			min:{w:200,h:0},				
+			args:args
+		}
+		this.margin.bottom.newElement( frame )
 	}
 	
-	function openForward(){
-		if(FEString.startsWith(this.subject.toLowerCase(),"tr:") || FEString.startsWith(this.subject.toLowerCase(),"tr :")){
-			var subj = this.subject;
-		}else{
-			var subj = "Tr: "+this.subject;
+	function attachMain(){
+		var pageObj,args,frame;
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	big:1,
+					list:[
+						{	type:"text",
+							big:1,
+							param:{
+								name:"content",
+								text:this.content,
+								textFormat: {size: 12},
+								fieldProperty: {html: true,selectable: true,mouseWheelEnabled: true,myBox: this.box}
+							}
+						}
+					]
+				}
+			]
 		}
-		
-		// TODO: ajouter des liens sur les adresses mails
-		var content = Lang.fv("mail.forward_tpl",{d: Lang.formatDateString(this.date,"long"),f: FEString.unHTML(this.from),t: FEString.unHTML(this.to),c: this.content,s: this.subject})
-		
-		_global.desktop.addBox(new box.Mail({subject: subj,content: content}));
-		this.tryToClose();
+		args = {
+			//flDocumentFit:true,
+			pageObj:pageObj,
+			flGravity:false,
+			flMask:true,
+			flWait:true
+		}
+		var margin = Standard.getMargin();
+		frame = {
+			margin: margin,
+			name:"mainFrame",
+			link:"cpDocument",
+			type:"compo",
+			flBackground:true,
+			mainStyleName:"frDef",
+			min:{w:200,h:80},
+			args:args
+		}
+		this.mainDoc = this.main.newElement( frame )
+		this.main.bigFrame = this.main.mainFrame;		
 	}
 	
+	/*
+	function attachEndButton(){
+	
+		var pageObj,args,frame;
+		pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{	
+					list:[
+						{	type:"spacer",
+							big:1
+						},	
+						{	type:"button",
+							param:{
+								initObj:{txt:"sauvegarder"},
+								buttonAction:{onPress:[{obj:this,method:"saveMail"}]}
+							}
+						},
+						{	type:"button",
+							param:{
+								initObj:{txt:"envoyer"},
+								buttonAction:{onPress:[{obj:this,method:"sendMail"}]}
+							}
+						}						
+					]
+				}				
+			]
+		}
+		args = {
+			flDocumentFit:true,
+			pageObj:pageObj
+		}
+		var margin = Standard.getMargin();
+		margin.x.min = 4;
+		margin.x.ratio = 0;
+		margin.y.min = 6;
+		margin.y.ratio = 0.66;
+		frame = {
+			name:"infoFrame",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			margin:margin,
+			min:{w:204,h:0},				
+			args:args
+		}
+		this.margin.bottom.newElement( frame )
+			
+	}
+	*/
+	
+	//TODO FUNCTION:
+	function reply(){
+		this.box.openReply();
+	}
+	function forward(){
+		this.box.openForward();
+	}
 	function moveToRecycleBin(){
-		_global.fileMng.moveToRecycleBin(this.uid);
-		this.tryToClose();
+		this.box.moveToRecycleBin();
 	}
 
-	function onWheel(delta){
-		this.window.scrollText(-10 * delta);
+	function scrollText(delta){
+		this.mainDoc.mask.y.path.pixelScroll(delta);
 	}
+//{	
 }

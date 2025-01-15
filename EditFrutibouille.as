@@ -1,108 +1,143 @@
-class box.EditFrutibouille extends box.Standard{
-	var fbouille:String;
-	var part:Array;
-	var flLoading:Boolean = false;
+class win.EditFrutibouille extends win.Advance{//}
 	
-	function EditFrutibouille(obj){
-		this.winType = "winEditFrutibouille";
-		for(var n in obj){
-			this[n] = obj[n];
-		}
-		if(this.winOpt == undefined) this.winOpt = new Object();
+	// a recevoir
+	var modifList:Array;
+	var str:String;
+	var cbValidate:Object;	//callback
+
+	var screen:cp.FrutiScreen;
+	var fb:MovieClip;
+	var info:Array;
+	var changedProps:Array;
+	
+	var flTrace:Boolean;
+	
+	function EditFrutibouille(){
+		this.changedProps = new Array();
+		this.init();
+	}
+	
+	function init(){
+		//_root.test+="initEditFrutibouille\n"
+		//this.flTrace=true;
+		super.init();
 		
-		var ml = new Array();
-		var m = -1;
-		for(var i=0;i<this.part.length;i++){
-			switch(this.part[i]){
-				case "1":
-					if(m < 1) m = 1;
-					ml.pushUniq(4);
-					ml.pushUniq(5);
-					break;
-				case "2":
-					if(m < 2) m = 2;
-					ml.pushUniq(1);
-					ml.pushUniq(2);
-					break;
-				case "3":
-					if(m < 3) m = 3;
-					ml.pushUniq(3);
-					ml.pushUniq(6);
-					break;
-				case "4":
-					ml.pushUniq(5);
-					ml.pushUniq(6);
+		this.topIconList.splice(0,3);
+		
+		if( this.modifList == undefined ) this.modifList = new Array(1,2,3,4,5,6,7,8);	//DEBUG
+		if( this.str == undefined ) this.str = "000000000000020000"//"000602000000020000";			//DEBUG
+		this.endInit();
+	}
+	
+	function endInit(){
+		super.endInit();
+		this.screen.onStatusObj( {fbouille:this.str}, {obj:this,method:"initControlPanel"})
+		//this.screen.addContent("frutibouille",{loadInitCallback:{obj:this,method:"initControlPanel"}})
+	}
+
+	function initFrameSet(){
+		super.initFrameSet();
+		// FRUTISCREEN
+		
+		var margin = Standard.getMargin();
+		margin.y.ratio = 0;
+		margin.y.min = 10;
+		
+		var args = { fix:{w:100,h:100} }
+		
+		var frame = {
+			type:"compo",
+			name:"screenFrame",
+			link:"frutiScreen",
+			min:{w:200,h:100},
+			mainStyleName:"frSystem",
+			win:this,
+			margin:margin,
+			args:args
+		};
+		this.screen = this.main.newElement(frame);
+		
+	}
+	
+	function initControlPanel(){
+		//_root.test+="initControlPanel\n"
+		this.fb = this.screen.last
+		
+		//this.info = this.fb.getInfo();
+		this.updateInfo();
+		//_root.test+="initControlPanel this.info("+this.fb+") this.info("+this.info+")\n"
+		
+		// COMPOSANTS
+		for( var i=0; i<this.modifList.length; i++){
+			var id = this.modifList[i]
+			var margin = Standard.getMargin();
+			margin.y.ratio = 1;
+			margin.y.min = 10;
+			var args={
+				id:id,
+				val:FEString.decode62( str.substring( 2*id, (2*id)+2 ) ),
+				parent:this
 			}
-		}
-		switch(m){
-			case 1:
-				this.fbouille = this.fbouille.substr(0,6)+"02"+this.fbouille.substr(8,10);
-				break;
-			case 2:
-				this.fbouille = this.fbouille.substr(0,6)+"03"+this.fbouille.substr(8,10);
-				break;
-			case 3:
-				this.fbouille = this.fbouille.substr(0,6)+"04"+this.fbouille.substr(8,10);
-				break;
-		}
-		ml.sort();
-		
-		this.winOpt.str = this.fbouille;
-		this.winOpt.modifList = ml;
-		this.title = Lang.fv("my_frutibouille");
-		
-		_global.uniqWinMng.setBox("editbouille",this);
-	}
-	
-	function close(){
-		_global.uniqWinMng.unsetBox("editbouille");
-		super.close();
-	}
-	
-	function tryToClose(){
-		return false;
-	}
-	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = false;
-		super.preInit();	
-	}
-
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
-		}else{
-			// change mode init
-		}
-
-		return rs;
-	}
-	
-	function validate(fbouille){
-		if(this.flLoading) return;
-		
-		if(!this.window.hasTouchAllButton()){
-			_global.openAlert(Lang.fv("edit_bouille.must_touch_all_buttons"),Lang.fv("warning"));
-			return;
+			var frame = {
+				type:"compo",
+				name:"console"+i,
+				link:"cpFBConsole",
+				min:{w:140,h:26},
+				win:this,
+				args:args
+			};
+			this.main.newElement(frame);			
 		}
 		
-		this.flLoading = true;
-		this.fbouille = fbouille;
-		var l = new HTTP("do/eb",{b: fbouille},{type: "loadVars",obj: this,method: "onEB"});
+		// VALIDER
+		var args={
+			doc:new XML("<p><l><s b=\"1\"/><b t=\"valider\" l=\"butPushStandard\" o=\"win\" m=\"validate\"/><s b=\"1\"/></l></p>")
+		}
+		var frame = {
+			type:"compo",
+			name:"frameValidate",
+			link:"cpDocument",
+			min:{w:140,h:22},
+			margin:margin,
+			args:args
+		};	
+		this.main.newElement(frame);
+		this.frameSet.update();
+		
 	}
 	
-	function onEB(success,vars){
-		this.flLoading = false;
-		if(vars.k == "0"){
-			_global.mainCnx.cmd("fbouille",{f: this.fbouille});
-			this.close();
-		}else{
-			_global.openErrorAlert(Lang.fv("error.http."+vars.k));
-		}
+	function setVal(id,val){
+		//_root.test+="setValue("+id+","+val+")\n"
+		this.changedProps[id] = true;
+		this.str = this.str.substring(0,id*2)+FENumber.encode62(val,2)+this.str.substring((id+1)*2)
+		this.fb.apply(str);
+		//UPDATE CONSOLE:
+		if(this.info[id].control!=undefined){
+			this.updateInfo();
+			this.main["console"+this.info[id].control].path.val = 0
+			this.setVal(this.info[id].control,0);
+		}		
 	}
-
+	
+	function updateInfo(){
+		this.info = this.fb.getInfo();
+	}
+	
+	function validate(){
+		// TODO
+		_root.test+="validate\n"
+		this.box.validate(this.str)
+		//this.fb.action();
+	}
+	
+	function hasTouchAllButton(){
+		//_global.debug("Tient au fait, est ce que le frutiz il est touche à tout ?");
+		for(var i=0;i<this.modifList.length;i++){
+			//_global.debug("i: "+i+", id: "+this.modifList[i]+" ==> "+this.changedProps[this.modifList[i]]);
+			if(!this.changedProps[this.modifList[i]]) return false;
+		}
+		return true;
+	}
+	
+//{
 }

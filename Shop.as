@@ -1,274 +1,558 @@
-class box.Shop extends box.Standard{
+/*
+$Id: Shop.as,v 1.60 2004/07/09 16:48:20  Exp $
 
-	var currentItem:Object;
-	var currentKikooz:Number;
-	var alertBox;
-	var displayedPack:Number;
-  var currentPackName:String;
+Class: box.Shop
+*/
+class win.Shop extends win.Advance{//}
 	
-	function Shop(obj){
-		this.winType = "winShop";
-		//_root.test+="shopBox Contructor\n"
-		for(var n in obj){
-			this[n] = obj[n];
+	// CONSTANTES
+	var topLeftBarHeight:Number = 22;
+	
+	// VARIABLES
+	var flMenu:Boolean;
+	var displayMode:String;
+	var iconList:Array;
+	var item:Object;
+	
+	
+	var menuTree:cp.Tree;
+	var cpMenu:cp.ProductMenu;
+	var cpInfo:cp.Document;
+	var cpCounter:cp.Counter;
+	
+	
+	/*-----------------------------------------------------------------------
+		Function: Shop()
+	 ------------------------------------------------------------------------*/	
+	function Shop(){
+		this.init();	
+	}
+
+	/*-----------------------------------------------------------------------
+		Function: init()
+	 ------------------------------------------------------------------------*/	
+	function init(){
+		//this.iconLabel="shop"
+		//_root.test+="winShopInit\n"
+		this.genIconList();
+		
+		super.init();
+		this.endInit();
+		
+		this.flMenu = false
+		if(this.item!=undefined){
+			this.displayItem(this.item);
 		}
 		
-		_global.uniqWinMng.setBox("shop",this);
-
-    if(this.displayedPack != undefined){
-      this.displayPack(this.displayedPack);
-    }
 	}
 	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		this.title = Lang.fv("shop.title");
-		super.preInit();	
-	}
-
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
-			var loader = new HTTP("ft/tree",[],{type: "xml",obj: this,method: "onTree"});
-			
-			
-			_global.me.addListener("kikooz",{obj: this,method: "onKikooz"});
-			this.onKikooz(_global.me.kikooz);
-		}else{
-			// change mode init
-		}
-
-		return rs;
-	}
-	
-	function close(){
-		_global.me.removeListener("kikooz",this);
-		_global.uniqWinMng.unsetBox("shop");
-		super.close();
-	}
-	
-	function onTree(success,node){
-		if(!success){
-			_global.debug("Unable to get the shop tree from server");
-			this.window.displayError(Lang.fv("error.shop.tree"));
-		}else{
-			if(node.lastChild.nodeName != "c"){
-				_global.debug("A valid ShopTree XML must starts with a node c");
-				this.window.displayError(Lang.fv("error.shop.tree"));
-			}else{
-				this.window.setTree(this.analyseTree(node.lastChild));
-				var dPack = Number(node.lastChild.attributes.d);
-				/*	ET PAF LE GROS HACK !! - SOUS LE SOLEIL DE BELGIQUE ? 
-          // Mettre ça dans le client !! Beurk beurk beurk !
-					dPack = 5; 
-				//*/
-				if(!isNaN(dPack) && dPack != undefined){
-          if(this.displayedPack == undefined)	this.displayPack(dPack);
+	function genIconList(){
+		this.iconList = [
+			{link:"butPush", param:{
+					link:"butPushSmallWhite",
+					frame:20,
+					outline:2,
+					curve:4,
+					tipId: "shop_kikooz_log",
+					buttonAction:{ 
+						onPress:[{
+							obj: _global.uniqWinMng,
+							method: "open",
+							args: "kikoozLog"
+						}]
+					}
+				}
+			},
+			{link:"butPush", param:{
+					link:"butPushSmallWhite",
+					frame:21,
+					outline:2,
+					curve:4,
+					tipId: "shop_obtain_kikooz",
+					buttonAction:{ 
+						onPress:[{
+							obj: this.box,
+							method: "obtainKikooz"
+						}]
+					}
 				}
 			}
-		}
+		]
 	}
 	
-	function analyseTree(node){
-		var r = new Array();
-		for(var n=node.firstChild;n.nodeType>0;n=n.nextSibling){
-			if(n.nodeName == "c"){
-				if(n.hasChildNodes()){
-					r.push({text: n.attributes.n,list: this.analyseTree(n),bulletLink: "shopBullet"});
-				}
-			}else if(n.nodeName == "p"){
-				r.push({text: n.attributes.n,action: {obj: this,method: "displayPack",args: Number(n.attributes.i)},bulletLink: "shopBullet"});
+	/*-----------------------------------------------------------------------
+		Function: initFrameSet()
+	 ------------------------------------------------------------------------*/	
+	function initFrameSet(){
+		
+		super.initFrameSet();
+
+		// TOPLEFTBAR
+		var margin = Standard.getMargin();
+		margin.x.min = 8;
+		margin.x.ratio = 1;
+		this.margin.left.newElement( { name:"bar", type:"h", min:{w:140,h:this.topLeftBarHeight}, margin:margin } )	
+		// COMPTEUR DE KIKOOZ
+			
+			var ts = Standard.getTextStyle()
+			ts.def.textFormat.size = 14;
+			ts.def.textFormat.bold = true;
+			ts.def.textFormat.color = _global.colorSet.brown.overdark
+			
+			var args = {
+				//value:254,
+				align:"left",
+				textStyle:ts.def
 			}
+
+	
+			var frame = {
+				name:"kikoozFrame",
+				link:"cpCounter",
+				type:"compo",
+				min:{w:70,h:this.topLeftBarHeight},
+				flBackground:true,
+				mainStyleName:"frKikooz",
+				args:args
+			}
+			
+			this.cpCounter = this.margin.left.bar.newElement( frame )
+			
+			// ICONLIST
+			var struct = Standard.getSmallStruct();
+			struct.x.margin = 0
+			struct.y.margin = 0
+			struct.x.align = "end"
+			struct.y.align = "start"
+			var args = {
+				//flMarker:true,
+				list:this.iconList,
+				struct:struct,
+				mask:{flScrollable:false}
+			};
+			var frame = {
+				name:"iconList",
+				link:"basicIconList",
+				type:"compo",
+				min:{w:70,h:this.topLeftBarHeight},
+				args:args
+			}			
+			this.margin.left.bar.newElement( frame )
+			
+		
+		// MENU
+		// var list = this.getSpecimenList();
+		var args = {
+			width:140,
+			flMask:true
 		}
-		return r;
+		var margin = Standard.getMargin();
+		margin.x.min = 8;
+		margin.x.ratio = 1;
+		margin.y.min = 16;
+		margin.x.ratio = 1;
+		var frame = {
+			name:"menuFrame",
+			link:"cpTree",
+			type:"compo",
+			min:{w:140,h:60},
+			margin:margin,
+			flBackground:true,
+			mainStyleName:"frSystem",			
+			args:args
+		}
+		this.menuTree = this.margin.left.newElement( frame )
+		this.margin.left.bigFrame = this.margin.left.menuFrame;
+		
+		// initialise la frame show
+		var margin = Standard.getMargin();
+		margin.x.min = 8;
+		margin.x.ratio = 1;
+		//margin.y.min = 12;
+		//margin.y.ratio = 0
+		this.main.newElement({ name:"showFrame", type:"h", min:{w:300,h:200}, flBackground:true, margin:margin})
+		this.main.bigFrame = this.main.showFrame;
+			
+			// initialise la frame productInfo
+			var args = {
+				//mainStyleName:"content",
+				flMask:true			
+			}
+			var margin = Standard.getMargin();
+			margin.y.min = 4;
+			margin.y.ratio = 1;
+			
+			//var margin = Standard.getMargin();
+			var frame = {
+				name:"menuInfoFrame",
+				margin: margin,
+				link:"cpDocument",
+				type:"compo",
+				min:{w:200,h:200},
+				mainStyleName:"frSheet",
+				args:args
+			}			
+			this.cpInfo = this.main.showFrame.newElement(frame)
+			this.main.showFrame.bigFrame = this.main.showFrame.menuInfoFrame;
+		
+
+		// BAR
+		var margin = Standard.getMargin();
+		margin.y.min = 6
+		margin.y.ratio = 1
+		this.main.newElement( { name:"bar", type:"h", min:{w:10,h:10}, margin:margin } )	
+			
+			// FDDRIVE
+			/*
+			var margin = Standard.getMargin();
+			margin.x.min = 8;
+			margin.x.ratio = 1;			
+			var args = {}
+			var frame = {
+				name:"FDDriveFrame",
+				link:"cpFDDrive",
+				type:"compo",
+				min:{w:72,h:72},
+				args:args,
+				margin:margin
+			}		
+			this.main.bar.newElement(frame);
+			*/
+			// EMPTY
+			this.main.bar.newElement( { name:"empty", type:"h" } )
+			this.main.bar.bigFrame = this.main.bar.empty
+			// BUTKIKOOZ
+			var args={
+				link:"butPushMoreKikooz",
+				frame:3,
+				outline:2,
+				curve:6,
+				buttonAction:{ 
+					onPress:[{
+						obj:this.box,
+						method:"obtainKikooz"
+					}]
+				}
+			}
+			var frame = {
+				name:"pushKikooz",
+				link:"butPush",
+				type:"compo",
+				min:{w:100,h:60},
+				args:args
+			}		
+			this.main.bar.newElement(frame);
+			//*/
+			
+			
+	}
+
+	/*-----------------------------------------------------------------------
+		Function:  setTree()
+	 ------------------------------------------------------------------------*/	
+	function setTree(a){	
+		/* > 0:10 trops tard pour la recursivitï¿½
+		this.list = new Array()
+		for(var i=0; i<a.length; i++){
+			this.list.push( newElement(a[i]) )
+		}
+		this.menuTree.setList(this.list)
+		*/
+		this.menuTree.setList(a)
 	}
 	
-	function displayPack(id){
-		this.displayedPack = id;
-		var loader = new HTTP("ft/pack",{id: id},{type: "xml",obj: this,method: "onPack"});
-		this.window.displayWait();
-	}
-	
-	function onPack(success,node){
-		if(!success){
-			_global.debug("Unable to get the shop pack details from server");
-			this.window.displayError(Lang.fv("error.shop.pack"));
+	/*-----------------------------------------------------------------------
+		Function: newElement(e)
+	 ------------------------------------------------------------------------*/	
+	function newElement(e){
+		var element = new Object;
+		if(e.list!=undefined){
+			element.list = new Array()
+			for(var i=0; i<e.list.length; i++){
+				element.list.push(newElement(e.list[i]))
+			}
 		}else{
-			if(node.lastChild.nodeName == "r" && node.lastChild.attributes.k != undefined){
-				_global.debug("HTTP Error: "+Lang.fv("error.http."+node.lastChild.attributes.k));
-				this.window.displayError(Lang.fv("error.http."+node.lastChild.attributes.k));
-			}else if(node.lastChild.nodeName != "p"){
-				_global.debug("A valid ShopPack XML must starts with a node p");
-				this.window.displayError(Lang.fv("error.shop.pack"));
-			}else{
-				node = node.lastChild;
-				var o = new Object();
+			element.buttonAction = {}
+		}
+		
+		return element;
+		
+	}
+	
+	/*-----------------------------------------------------------------------
+		Function:  displayItem(item)
+			{  
+			  id: 2,  
+			  name: "Burning Kiwi",  
+			  type: "game",  
+			  quantity: 0, // -1 si illimitï¿½  
+			  description: "string ï¿½ passer ï¿½ un champ HTML flash",  
+			  price: {  
+			    price: 50,  
+			    // Dates de validitï¿½s du prix  
+			    start: undefined | "2003-12-23 22:45:33", // pour l'affichage d'une date, y'a dï¿½jï¿½ toutes les fonctions disponibles  
+			    end: undefined | "2003-12-23 22:45:33",  
+			    comment: "Prix public" // lï¿½ c'est un champ facultatif oï¿½ on peut mettre par exemple "Promotion reservï¿½e aux frutiz ayant une frutibouille rouge", ou ce genre de choses  
+			  }
+			  screens: Array;
+			  video: Array;
+			  comment: Number;
+			}
+	------------------------------------------------------------------------*/	
+	function displayItem(item){	
+		if(!this.flMenu)this.attachMenu();
+		this.item = item;
+		
+		//_root.test+="dispayItem\n"
+		var butList = new Array();
+		
+		
+		//butList.push( {name:"test",action: {obj: this, method:"displayItemPage", args:"test"}} )
+
+		var needDescButton = false;
+    
+		if( item.screens.length ){
+			needDescButton = true; 
+			butList.push( {name:"Images",action: {obj: this, method:"displayItemPage", args:"screenshot"}} )
+		}
+		
+		if(needDescButton){
+			butList.unshift( {name:"Description",action: {obj: this, method:"displayItemPage", args:"description"}} )
+		}
+		
+		
+		if(!item.alreadyBuy){
+			butList.unshift( {name: Lang.fv("shop.buy"),action: {obj: this.box,method: "buy",args: this.item.id}} )
+		}
+		
+		
+		this.cpMenu.setItem( this.item.picto, butList );
+
+		
+		this.displayItemPage("description")
+		//this.displayItemPage("test")
+	}
+	
+	function displayItemPage(type){
+		//_root.test+="dispayItemPage("+type+")\n"
+		
+		var doc_str = "<p>";
+		
+		switch(type){
+			case "description" :
+				// Product name
+				doc_str += '<l><t s="4">'+this.item.name+'</t></l>';
+				doc_str += FEString.replaceBackSlashN(this.item.description);
 				
-				o.id = Number(node.attributes.i);
-				o.name = node.attributes.n;
-				//snif
-				o.icon = node.attributes.i;
-				//snif
-				o.picto = node.attributes.p.split(",");
-      
-        if(o.picto[0] == "bouille"){
-          o.picto = {
-            type: "bouille",
-            id: _global.me.fbouille.substr(0,14) + o.picto[1]
-          };
+				if(item.alreadyBuy){
+					doc_str += '<l><t s="3">'+Lang.fv("shop.already_have")+'</t></l>';
+				}else{
+					doc_str += '<l><t s="3">'+Lang.fv("shop.price",{p: this.item.price.price})+'</t></l>';
+					if(this.item.price.end != undefined || this.item.price.comment != undefined){
+
+						var ln_price = '<l><t s="2">';
+						if(this.item.price.comment != undefined){
+							ln_price += Lang.fv("shop.price_comment",{c: this.item.price.comment})
+						}
+						if(this.item.price.end != undefined && this.item.price.comment != undefined){
+							ln_price += " ";
+						}	
+						if(this.item.price.end != undefined){
+							ln_price += Lang.fv("shop.price_end",{d: Lang.formatDateString(this.item.price.end,'short')})
+						}
+						ln_price += '</t></l>';
+						doc_str += ln_price;
+            
+					}
+				}
+				if(this.item.quantity > -1){
+					doc_str += '<l><t s="2">'+Lang.fv("shop.pack_quantity",{q: this.item.quantity})+'</t></l>';
+				}
+         
+        if(this.item.screens.length > 0){
+          doc_str += '<l><t s="2">'+this.item.screens.length+' images disponibles !</t></l>';
         }
         
-				o.quantity = Number(node.attributes.q);
-				o.alreadyBuy = (node.attributes.h=="1");
-        o.screens = new Array();
-				for(var n=node.firstChild;n.nodeType>0;n=n.nextSibling){
-					if(n.nodeName == "d"){
-						o.description = n.firstChild.nodeValue.toString();
-					}else if(n.nodeName == "r"){
-						o.price = {price: Number(n.attributes.p),start: n.attributes.s,end: n.attributes.e,comment: n.firstChild.nodeValue.toString()}
-					}else if(n.nodeName == "s"){
-            var screen = {returnId: o.screens.length, title: n.attributes.n};
-            for(var j=n.firstChild;j.nodeType>0;j=j.nextSibling){
-               if(j.nodeName == "b"){
-                  screen.big = {url: j.attributes.u, width: Number(j.attributes.w), height: Number(j.attributes.h)};
-               }else if(j.nodeName == "t"){
-                  screen.thumb = {url: j.attributes.u, width: Number(j.attributes.w), height: Number(j.attributes.h)};
-               }
-            }
-            o.screens.push(screen);
-          }
-				}
-				// ET MOI ALORS ON ME DIT JAMAIS RIEN !!
-				this.window.displayItem(o);
+				break;
+
+			case "screenshot" :
+        var list = this.item.screens;
 				
-				this.currentItem = o;
-			}
-		}
-	}
-	
-	function buy(pack_id){
-		_global.debug("Buy pack #"+pack_id);
-		
-		if(this.currentItem.id != pack_id){
-			return _global.openErrorAlert(Lang.fv("error.shop.unknow_pack"));
-		}
-		
-		if(this.alertBox != undefined && !this.alertBox.flClosed) return false;
-		
-		if(this.currentKikooz < this.currentItem.price.price){
-			this.alertBox = new box.Alert({
-				title: Lang.fv("shop.title"),
-				text: Lang.fv("shop.not_enough_kikooz"),
-				butActList: [{
-						name: Lang.fv("cancel")
-					},{
-						name: Lang.fv("shop.obtain_kikooz"),
-						action: {
-							obj: this,
-							method: "obtainKikooz"
-						}
-					}
+				/*  HACK
+				list = [
+				     {
+				       returnId:0,
+				       title: "Image truc machin",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga01s.jpg"}
+				     },
+				     {
+				       returnId:1,
+				       title: "Image truc bidule",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga02s.jpg"}
+				     },
+				     {
+				       returnId:2,
+				       title: "Kaluga en short",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga02s.jpg"}
+				     },
+				     {
+				       returnId:3,
+				       title: "Kaluga aime les radis",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga01s.jpg"}
+				     },
+				     {
+				       returnId:4,
+				       title: "Mangez des corbeaux",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga02s.jpg"}
+				     },
+				     {
+				       returnId:5,
+				       title: "Contre l'armï¿½e Syrienne",
+				       thumb: {width:146, height:100, url:"s:/ss/kaluga/kaluga02s.jpg"}
+				     }			     
 				]
-			});
-			_global.topDesktop.addBox(this.alertBox);
-		}else{
-      this.currentPackName = this.currentItem.name;
-			this.alertBox = new box.Alert(
-				{
-					title: Lang.fv("shop.title"),
-					text: Lang.fv("shop.confirm_buy",{p: this.currentItem.price.price,n: this.currentItem.name}),
-					butActList: [
-						{
-							name: Lang.fv("cancel")
-						},
-						{
-							name: Lang.fv("shop.buy"),
-							action: {
-								obj: this,
-								method: "doBuy",
-								args: pack_id
-							}
-						}
-					]
+				//*/
+				     
+				doc_str += '<l h="8"></l><l>';
+				for( var i=0; i<list.length; i++ ){
+					var o = list[i]
+					
+					var m = 10
+					var w = o.thumb.width+m
+					var h = o.thumb.height
+					
+					doc_str += '<p w="'+w+'" h="'+(h+20)+'">'
+					doc_str += '<l><u u="'+o.thumb.url+'" w="'+w+'" h="'+h+'"><p><glAction o="doc.win.box" m="displayScreenshot" a="'+o.returnId+'"></glAction></p></u></l>'
+					doc_str += '<l><t w="'+(w-m)+'">'+o.title+'<p><textFormat align="center"/></p></t></l>'
+					doc_str += '</p>'
+					
 				}
-			);
-			_global.topDesktop.addBox(this.alertBox);
-		}
-	}
-	
-	function obtainKikooz(){
-		_global.uniqWinMng.open("kikooz");
-	}
-	
-	function doBuy(pack_id){
-		var loader:HTTP = new HTTP("ft/buy",{i: pack_id},{type: "xml",obj: this,method: "onBuy"});		
-	}
-	
-	function onBuy(success,xml){
-		if(!success){
-			return _global.openErrorAlert(Lang.fv("error.host_unreachable"));
-		}
-		
-		xml = xml.firstChild;
-		if(xml.nodeName != "r") return _global.openErrorAlert(Lang.fv("error.http.1"));
-		
-		if(xml.attributes.k != undefined && Number(xml.attributes.k) != 0){
-			return _global.openErrorAlert(Lang.fv("error.http."+xml.attributes.k));
+				doc_str +='</l>'
+				break;
+				
+			case "test" :
+				doc_str += '<l>'
+				for(var i=0; i<10; i++)doc_str += '<t w="80" s="4">coucou</t>';
+				doc_str += '</l>';
+				doc_str += '<l>'
+				doc_str += '<t w="80" s="4">faefa</t><t w="80" s="4">faefa</t>';
+				doc_str += '</l>';				
+				
+				break;
+			default :
+				doc_str += '<l>'
+				for(var i=0; i<10; i++)doc_str += '<t w="80" s="4">coucou</t>';
+				doc_str += '</l>';
+			
+				break;			
+			
 		}
 		
+		doc_str += "</p>";
+		var doc = new XML();
+		doc.ignoreWhite = true;
+		doc.parseXML(doc_str);
+		this.cpInfo.setDoc(doc);
+		this.main.update()		
 		
-		var kikooz = Number(xml.attributes.i);
-		if(isNaN(kikooz) || kikooz == undefined){
-			return _global.openErrorAlert(Lang.fv("error.http.1"));
-		}
 		
-		_global.me.kikooz = kikooz;
-	
-		for(var n=xml.firstChild;n.nodeType>0;n=n.nextSibling){
-			if(n.nodeName == "f"){ // folder
-				_global.fileMng.callListeners(n.firstChild.nodeValue.toString(),"refresh");
-			}else if(n.nodeName == "i"){ // item
-				_global.me.addItem(n.firstChild.nodeValue);
-      }else if(n.nodeName == "b"){
-         _global.me.bouilleList.push({name: n.firstChild.nodeValue,bouille: n.attributes.b});
-			}else{
-				_global.debug("Unknow ft/buy modif response : "+n.nodeName);
-			}
-		}
 		
-		this.displayPack(this.displayedPack);
-		
-    _global.openAlert(Lang.fv("shop.buy_success",{n: this.currentPackName,k: kikooz}),Lang.fv("shop.buy_success_title"));
-    
-		this.window.onBuySuccess(kikooz);
 	}
 	
-	function onKikooz(k){
-		this.currentKikooz = k;
-		this.window.setKikooz(k);
+	/*-----------------------------------------------------------------------
+		Function:  displayError(str)
+	 ------------------------------------------------------------------------*/	
+	function displayError(str){	
+		if(this.flMenu) this.detachMenu();
 	}
 	
-	function onWheel(delta){
-		this.window.scrollText(-10 * delta);
+	/*-----------------------------------------------------------------------
+		Function:  displayWait()
+	 ------------------------------------------------------------------------*/	
+	function displayWait(){	
+
+	}
+	
+	/*-----------------------------------------------------------------------
+		Function:  setKikooz(k)
+			Appelï¿½e lorsque le nombre de kikooz a changï¿½
+	 ------------------------------------------------------------------------*/	
+	function setKikooz(k){
+		this.cpCounter.setKikooz(k)
 	}
 
-  function displayScreenshot(id){
-    //
-    _global.desktop.addBox(
-      new box.DocScreen({
-        pos: {
-          w: this.currentItem.screens[id].big.width,
-          h: this.currentItem.screens[id].big.height
-        },
-        doc: new XML('<p><l><u u="'+this.currentItem.screens[id].big.url+'"/></l></p>'),
-        title: this.currentItem.screens[id].title 
-      })
-    );
+	/*-----------------------------------------------------------------------
+		Function:  attachMenu()
+			initialise la frame productMenu
+	 ------------------------------------------------------------------------*/	
+	function attachMenu(){
+		// 
+		var args = {
+			//flBackground:true,
+			//mainStyleName:"content"
+		}
+		var margin = Standard.getMargin();
+		margin.x.min = 12;
+		margin.y.min = 4;
+		margin.y.ratio = 1;
+		var frame = {
+			name:"menuProductFrame",
+			link:"cpProductMenu",
+			type:"compo",
+			margin:margin,
+			args:args
+		}
+		this.flMenu = true;
+		this.cpMenu = this.main.showFrame.newElement(frame,0)
+		
+		this.frameSet.update();
+	}
 
-    
-  }
+	/*-----------------------------------------------------------------------
+		Function:  detachMenu()
+	 ------------------------------------------------------------------------*/	
+	function detachMenu(){
+		this.main.showFrame.removeElement("menuProductFrame")
+		this.flMenu = false;
+		
+		this.frameSet.update();
+	}
+
+	/*-----------------------------------------------------------------------
+		Function:  onBuyError(str)
+			Appelï¿½e en cas d'erreur sur une action d'achat
+			
+		Parameters:
+			str - string - Chaine de caractï¿½re contenant l'erreur ï¿½ afficher
+	 ------------------------------------------------------------------------*/	
+	function onBuyError(str){
+		// TODO
+	}
+	
+	/*-----------------------------------------------------------------------
+		Function:  onBuySuccess(k)
+			Appelï¿½e lorsqu'une action d'achat a rï¿½ussie
+			
+		Parameters:
+			k - number - nouveau solde du compte du frutiz en kikooz (la fonction setKikooz est appelï¿½e ï¿½galement)
+	 ------------------------------------------------------------------------*/	
+	function onBuySuccess(k){
+		// TODO
+	}
+	
+	function scrollText(px){
+		this.cpInfo.mask.y.path.pixelScroll(px);
+	}
+
+	//
+	
+	function testAlpha(){
+		_root._alpha = 50
+	}
+	
+//{	
 }
+
+
+
+

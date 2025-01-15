@@ -1,43 +1,62 @@
-class box.Charte extends box.Standard{
+class win.doc.Charte extends win.Doc{//}
+
+	//var myDoc:cp.Document;
 	
-	function Charte(obj){
-		this.winType = "winDocCharte";
+	/*-----------------------------------------------------------------------
+		Function: ConfirmMail()
+	 ------------------------------------------------------------------------*/	
+	function Charte(){
+		this.init();	
+		//_global.debug("win.doc.Charte()");
+	}
+
+	/*-----------------------------------------------------------------------
+		Function: init()
+	 ------------------------------------------------------------------------*/	
+	function init(){
 		
-		for(var n in obj){
-			this[n] = obj[n];
+		//_root.test+="winDocCharte init\n"
+		
+		this.frameInfo = {
+			flBackground:true,
+			mainStyleName:"frDef"
 		}
-		this.setTitle(Lang.fv("ext.welcome"));
-	}
-	
-	function preInit(){
-		// called only at start of the first init
-		this.desktopable = true;
-		this.tabable = true;
-		super.preInit();	
-	}
-
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			// first init
-		}else{
-			// change mode init
+		this.docInfo = {
+			flDocumentFit:true
 		}
-
-		return rs;
+		//
+		this.flTabable = false;
+		this.flResizable = false;
+		//this.flDocumentFit = true;
+		super.init();
+		//
+		this.topIconList.splice(0,3);
+		//
+		this.pos.w = 500
+		this.pos.h = 100
+		//
+		this.endInit();
+		this.moveToCenter();
 	}
 	
-	// Called on window closing
-	// This method MUST call super.close()
-	function close(){
-		super.close();
+	function ok(){
+		this.box.tryToClose();
 	}
 	
-	// Called when an element want to close the window
-	// This function can call this.close() or not...
-	function tryToClose(){
-		this.close();
-	}
+	/*-----------------------------------------------------------------------
+		Function: genDocument()
+	------------------------------------------------------------------------*/	
+	function genDocument(){
+		super.genDocument();
 
+		var str = Lang.fv("ext.gaspard_present",{u: _global.me.name});
+		this.doc = new XML(str);
+	}
+	
+
+//{	
 }
+
+
+
+

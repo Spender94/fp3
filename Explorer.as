@@ -1,423 +1,458 @@
-/*
-$Id: Explorer.as,v 1.28 2004/08/03 12:25:35  Exp $
-
-Class: box.Explorer
-*/
-class box.Explorer extends box.Standard{//}
-	var list;
-	var history:Array;
-	var history_pos:Number = 0;
-	var uid:String;
-	var listLoader:HTTP;
-	var boxAlertLinked:Array;
-	var haveActivateListener:Boolean;
+class win.Explorer extends win.Advance{//}
 	
-	var currentSort:Object;
-	var currentFolderType:Object;
+	//var flNewDirectory:Boolean;
+	//var flRemoveAll:Boolean;
+	var flNewDirectoryPanel:Boolean;
+	var flError:Boolean;
+	var folderType:Object;
 	
+	var navigatorIconList:Array;
+	var mcNavigator:MovieClip;
+	var mcFileIconList:MovieClip;
 	
-	function Explorer(obj){
-		this.winType = "winExplorer";
-		this.history = new Array();
-		this.boxAlertLinked = new Array();
-		this.haveActivateListener = false;
-		
-		this.currentSort = {field: "name",sens: "ASC"};
-		
-		for(var n in obj){
-			this[n] = obj[n];
-		}
-	}
+	var lister:cp.ListField;
 	
-	function preInit(){
-		this.desktopable = true;
-		this.tabable = true;
+	var nbAlertFrame:Number;
+	
 
-		super.preInit();	
+	function Explorer(){
+		this.init();
+	}
+	/*-----------------------------------------------------------------------
+		Function: init()
+	 ------------------------------------------------------------------------*/	
+	function init(){
+		//this.iconLabel="explorer"
+		super.init()
+		this.pos = {x:50,y:50,w:400,h:400};
+		this.nbAlertFrame = 0;
+		this.flNewDirectoryPanel=false;
+		if( this.folderType == undefined ){
+			this.folderType = {
+				styleName:"frFileStandard",
+				flNewDirectory:true,
+				flRemoveAll:false
+			}		
+		}
+		
+		this.initNavigatorIconList()
+		this.displayNavigatorIconList()
+		// TODO: vérifier qu'on pouvait bien mettre en commentaire... paske y'a pas de methode avec ce nom là, et je vois pas à quoi ça fait référence
+		this.displayExplorer();
+		this.endInit();
+		this.moveToCenter();
 	}
 
-	function init(slot,depth){
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			if(this.uid != undefined){
-				this.getList();
-			}
-		}
-
-		return rs;
-	}
-
-	function close(){
-		if(this.uid != undefined){
-			_global.explorerMng.rm(this.uid);
-			_global.fileMng.removeListener(this.uid,this);
-		}
-		this.emptyList();
-		_global.mainCnx.traceFlush();
-		super.close();
-	}
-
-	function getList(folder){
-		if(this.uid == folder) return;
-		if(folder == undefined && this.uid != undefined) var folder = this.uid;
+	/*-----------------------------------------------------------------------
+		Function: initNavigatorIconList()
+		Génére la liste de bouton de l'explorer.
+	 ------------------------------------------------------------------------*/	
+	function initNavigatorIconList(){
 		
-		for(var i=0;i<this.boxAlertLinked.length;i++){
-			_global.topDesktop.rmBox(this.boxAlertLinked[i]);
-		}
-		this.boxAlertLinked = new Array();
+		this.navigatorIconList = [];
 		
-		if(this.history_pos == 0){
-			this.history.push(folder);
+		if(this.folderType.flUp){
+			var but = 	{link:"butPush", param:{
+						link:"butPushNavigator",
+						frame:2,
+						outline:2,
+						curve:4,
+						tipId: "explorer_up",
+						buttonAction:{ 
+							onPress:[{
+								obj:this.box,
+								method:"getParent"
+							}]
+						}
+							
+					}
+			};
+			this.navigatorIconList.push(but);
 		}
-		if(this.uid != undefined && folder != this.uid){
-			_global.explorerMng.rm(this.uid);
-			_global.fileMng.removeListener(this.uid,this);
-			this.haveActivateListener = false;
-		}
-		
-		this.uid = folder;
-		
-		if(!this.haveActivateListener){
-			_global.explorerMng.push(folder);
-			_global.fileMng.addListener(folder,this);
-			this.haveActivateListener = true;
-		}
-		
-		this.listLoader = new HTTP("ff/ls",{uid: this.uid},{type: "xml",obj: this,method: "onLoadList"});
-		this.window.displayWait();
-		this.window.removeAlert();
-	}
-
-	function getParent(){
-		if(this.list.parent != undefined && this.list.parent.length > 0 && this.list.parent != "root"){
-			this.getList(this.list.parent);
-		}
-	}
-
-	// TODO; ajouter des boutons, vï¿½rifier que ï¿½a fonctionne...
-	function getPrevious(){
-		if(-this.history_pos < this.history.length - 1){
-			this.history_pos -= 1;
-			this.getList(this.history[this.history.length -1 + this.history_pos]);
-		}
-	}
-
-	function getNext(){
-		if(this.history_pos < 0){
-			this.history_pos += 1;
-			this.getList(this.history[this.history.length -1 + this.history_pos]);
-		}
-	}
-
-	function onLoadList(success,d){
-		if(!success){
-			this.window.displayError(Lang.fv("error.host_unreachable"));
-			return;
-		}
-
-		this.emptyList();
-    
-		this.initList(_global.fileMng.analyseXml(d.lastChild));
-		_global.mainCnx.traceFlush();
-
-		if(this.list == undefined){
-			this.window.displayError(Lang.fv("error.unknow_folder"));
-			return;
-		}
-		
-		_global.fileMng.accessFile(this.uid);
-
-		this.setTitle(this.list.desc[0]);
-		
-		
-		var obj = new Object();
-		if(this.list.parent != undefined && this.list.parent.length > 0 && this.list.parent != "root"){
-			obj.flUp = true;
-		}else{
-			obj.flUp = false;
-		}
-		
-		if(FEString.startsWith(this.uid,"inv")){
-			obj.flRemoveAll = false;
-			obj.flNewDirectory = false;
-			obj.styleName = "frFileStandard";
-		}else if(this.uid == _global.fileMng.recyclebin){
-			obj.flRemoveAll = true;
-			obj.flNewDirectory = false;
-			obj.styleName = "frFileTrash";
-		}else{
-			obj.flRemoveAll = false;
-			if(this.uid == _global.fileMng.inbox || this.uid == _global.fileMng.draftbox || this.uid == _global.fileMng.outbox || this.uid == _global.fileMng.blackbox || this.uid == _global.fileMng.inventory || this.uid == "blacklist" || this.list.tpl == "mail"){
-				obj.flNewDirectory = false;
-			}else{
-				obj.flNewDirectory = true;
-			}
 			
-			if(this.uid == _global.fileMng.messages || this.uid == _global.fileMng.inbox || this.uid == _global.fileMng.draftbox || this.uid == _global.fileMng.outbox || this.uid == _global.fileMng.blackbox || this.list.tpl == "mail"){
-				obj.flMail = true;
-			}else{
-				obj.flMail = false;
-			}
-	
-			if(this.uid == "blacklist"){
-				obj.styleName = "frFileBlackList";
-			}else{
-				obj.styleName = "frFileStandard";
-			}
-		}
-		
-		if(this.list.tpl == "mail"){
-			if(this.uid == _global.fileMng.outbox || this.uid == _global.fileMng.draftbox){
-				obj.lister = [
-					{displayName:Lang.fv("explorer.fields.to"),name:"to",min:140,sortName: "to"},
-					{displayName:Lang.fv("explorer.fields.subject"),name:"name",min:200, big:true,sortName: "name"},
-					{displayName:Lang.fv("explorer.fields.date"),name:"dateDsp",min:80,sortName: "date"}
-				];
-			}else{
-				obj.lister = [
-					{displayName:Lang.fv("explorer.fields.from"),name:"from",min:140,sortName: "from"},
-					{displayName:Lang.fv("explorer.fields.subject"),name:"name",min:200, big:true,sortName: "name"},
-					{displayName:Lang.fv("explorer.fields.date"),name:"dateDsp",min:80,sortName: "date"}
-				];
-			}
-			this.currentSort = {field: "date",sens: "DESC"};
-		}else{
-			this.currentSort = {field: "name",sens: "ASC"};
-		}
-		
-		this.currentFolderType = obj;
-		
-		var alertArr = new Array();
-		if(this.uid == _global.fileMng.disccollector){
-			if(this.checkBlackFDInList()){
-				alertArr.push(Lang.fv("explorer.alert.use_disc"));
-			}else if(!this.checkFDInList()){
-				alertArr.push(Lang.fv("explorer.alert.no_more_disc"));
-			}
-			
-		}else if(this.uid == "blacklist"){
-			alertArr.push(Lang.fv("explorer.alert.blacklist"));
-			
-		}else if(this.uid == _global.fileMng.mycontact && this.listSize() < 3 && !this.checkFolderInList()){
-			alertArr.push(Lang.fv("explorer.alert.create_contact"));
-			
-		}else if(this.uid == _global.fileMng.mycontact && this.getNbContactInList() > 15){
-			alertArr.push(Lang.fv("explorer.alert.too_much_contact"));
-			
-		}else if(this.uid == _global.fileMng.mycontact && random(100) < 10){
-			alertArr.push(Lang.fv("explorer.alert.invite_contact"));
-			
-		}else if(this.uid == _global.fileMng.inbox && this.listSize() <= 1){
-			alertArr.push(Lang.fv("explorer.alert.inbox_empty",{u: _global.me.name}));
-			
-		}else if(this.uid == _global.fileMng.inventory && this.listSize() < 2){
-			alertArr.push(Lang.fv("explorer.alert.inventory_empty"));
-		}
-		
-		this.displayList();
-		this.window.displayAlert(alertArr);
-	}
-	
-	function sortBy(field){
-		if(field == this.currentSort.field){
-			// on inverse
-			this.currentSort.sens = (this.currentSort.sens == "ASC")?"DESC":"ASC";
-		}else{
-			// on choisi ce champ en ASC par default
-			this.currentSort.field = field;
-			this.currentSort.sens = "ASC";
-		}
-		
-		this.displayList();
-	}
-
-	function initList(infos){
-		var oldList = infos.list;
-		var newList:Array = new Array();
-		for(var i=0;i<oldList.length;i++){
-			newList[i] = new IconFileBox(oldList[i],this);
-		}
-		infos.list = newList;
-		this.list = infos;
-	}
-	
-	function displayList(){
-		if(this.currentSort.sens == "ASC"){
-			this.list.list.sortOn([this.currentSort.field,"name"],Array.CASEINSENSITIVE);
-		}else{
-			this.list.list.sortOn([this.currentSort.field,"name"],Array.CASEINSENSITIVE | Array.DESCENDING);
-		}
-		
-		for(var i=0;i<this.currentFolderType.lister.length;i++){
-			if(this.currentFolderType.lister[i].sortName == this.currentSort.field){
-				this.currentFolderType.lister[i].sort = (this.currentSort.sens=="DESC");
-			}else{
-				this.currentFolderType.lister[i].sort = undefined;
-			}
-		}
-		
-		this.window.setFolderType(this.currentFolderType);
-		this.window.displayList(this.list);
-	}
-
-	function emptyList(){
-		for(var i=0;i<this.list.list.length;i++){
-			this.list.list[i].onKill();
-		}
-	}
-	
-	function checkBlackFDInList(){
-		for(var i=0;i<this.list.list.length;i++){
-			var f = this.list.list[i];
-			if(f.type == "disc" && f.desc[0] == "0") return true;
-		}
-		return false;
-	}
-	
-	function checkFDInList(){
-		for(var i=0;i<this.list.list.length;i++){
-			var f = this.list.list[i];
-			if(f.type == "disc") return true;
-		}
-		return false;
-	}
-	
-	function listSize(){
-		return this.list.list.length;
-	}
-	
-	function getNbContactInList(){
-		var n = 0;
-		for(var i=0;i<this.list.list.length;i++){
-			var f = this.list.list[i];
-			if(f.type == "contact") n++;
-		}
-		return n;
-	}
-	
-	function checkFolderInList(){
-		for(var i=0;i<this.list.list.length;i++){
-			var f = this.list.list[i];
-			if(f.type == "folder") return true;
-		}
-		return false;
-	}
-		
-	function onDrop(obj){
-		var destUid = this.uid;
-		for(var i=0;i<this.list.list.length;i++){
-			if(this.list.list[i].uid == obj.uid){
-				return ;
-			}
-		}
-		if(obj.uid == "new"){
-			_global.fileMng.make(obj,destUid);
-		}else{
-			if(Key.isDown(Key.CONTROL)){
-				_global.fileMng.copy(obj.uid,destUid);
-			}else{
-				_global.fileMng.move(obj.uid,destUid);
-			}
-		}
-	}
-
-	function addFile(obj){
-		obj.parent = this.uid;
-		this.list.list.push(new IconFileBox(obj,this));
-		//_global.mainCnx.traceFlush();
-		this.window.displayList(this.list);
-	}
-
-	function rmUid(uid){
-		for(var i=0;i<this.list.list.length;i++){
-			var t = this.list.list[i];
-			if(t.uid == uid){
-				t.onKill();
-				//_global.mainCnx.traceFlush();
-				this.list.list.splice(i,1);
-				this.window.displayList(this.list);
-				return t;
-			}
-		}
-	}
-	
-	function onParentModified(newParent){
-		this.list.parent = newParent;
-	}
-	
-	function refresh(){
-		this.getList();
-	}
-	
-	function tryToRemoveAll(){
-		if(this.uid != _global.fileMng.recyclebin) return false;
-		
-		// hum, j'suis pas sur de ce que je fais lï¿½...
-		if(this.boxAlertLinked.length > 0) return false;
-		
-		var nBox = new box.Alert({
-			title: Lang.fv("explorer.empty_recyclebin"),
-			text: Lang.fv("explorer.empty_recyclebin_query"),
-			butActList: [
-				{
-					name: Lang.fv("yes"),
-					action: {obj: this,method: "removeAll"}
-				},
-				{
-					name: Lang.fv("no"),
-					action: {obj: this,method: "cleanAlertLinked"}
+		if(this.folderType.flNewDirectory){
+			var but = {link:"butPush", param:{
+						link:"butPushNavigator",
+						frame:3,
+						outline:2,
+						curve:4,
+						tipId: "explorer_new_folder",
+						buttonAction:{ 
+							onPress:[{
+								obj:this,
+								method:"displayNewDirectoryFrame"
+							}]
+						}
+					}
 				}
-			]
-		});
+			this.navigatorIconList.push(but);		
+		}
 		
-		this.boxAlertLinked.push(nBox);
+		if(this.folderType.flRemoveAll){
+			var but = {link:"butPush", param:{
+						link:"butPushNavigator",
+						frame:4,
+						outline:2,
+						curve:4,
+						tipId: "explorer_empty_recyclebin",
+						buttonAction:{ 
+							onPress:[{
+								obj:this.box,
+								method:"tryToRemoveAll"
+							}]
+						}
+					}
+				}
+			this.navigatorIconList.push(but);		
+		}
 		
-		_global.topDesktop.addBox(nBox);
+		if(this.folderType.flMail){
+			var but = {link:"butPush", param:{
+						link:"butPushNavigator",
+						frame:5,
+						outline:2,
+						curve:4,
+						tipId: "explorer_new_mail",
+						buttonAction:{ 
+							onPress:[{
+								obj:this.box,
+								method:"newMail"
+							}]
+						}
+					}
+				}
+			this.navigatorIconList.push(but);		
+		}			
 	}
 	
-	function cleanAlertLinked(){
-		// hum, j'suis pas sur de ce que je fais lï¿½...
-		this.boxAlertLinked = new Array();
-	}
-	
-	function removeAll(){
-		if(this.uid != _global.fileMng.recyclebin) return false;
+	/*-----------------------------------------------------------------------
+		Function: displayNavigatorIconList()
+	 ------------------------------------------------------------------------*/	
+	function displayNavigatorIconList(){
+		if(!this.navigatorIconList.length) return;
 		
-		_global.fileMng.emptyRecycleBin();
-		this.cleanAlertLinked();
-	}
-	
-	function addFolder(fName){
-		_global.fileMng.make({type: "folder",desc: [fName]},this.uid);
-	}
-	
-	function newMail(){
-		_global.desktop.addBox(new box.Mail());
+		var struct = Standard.getStruct();
+		struct.limit="y";
+		struct.x.size = 24;
+		struct.y.size = 24;
+		struct.x.space = 2;
+		struct.y.space = 2;
+		var args = {
+			list:this.navigatorIconList,
+			struct:struct,
+			_y:margin.top,
+			flMask:true,
+			mask:{flScrollable:false} 
+		};
+		var frame = {
+			name:"navigatorFrame",
+			link:"basicIconList",
+			type:"compo",
+			min:{w:80,h:28},
+			args:args	
+		}
+		this.mcNavigator = main.newElement(frame,0)
 	}
 
-  function specialClick(obj){
-    if(FEString.startsWith(obj.uid,"invpicto,")){
-      var cat = obj.uid.substr(obj.uid.indexOf(",")+1);
-      getURL("javascript:fp_openPopup('/fb/picto_pop?sid="+_root.sid+"&cat="+escape(cat)+"','fb_picto_forum','width=350,height=350,resizable=yes,scrollbars=yes')");
-      return true;
-    }else if(obj.type == "bouille"){
-      _global.mainCnx.cmd("fbouille",{f: obj.desc[1]});
-      if(obj.desc[0] == "Bananocle"){
-         _global.uniqWinMng.open("search");
-      }
-      return true;
-    }else if(obj.type == "wallpaper"){
-      _global.wallPaper.loadWP(obj.desc[1],obj.desc[2]);
-      return true;
-    }
+	/*---------------------
+	--------------------------------------------------
+		Function: initExplorer()
+	 ------------------------------------------------------------------------*/	
+	function displayExplorer(){
+		var args = {
+			// SKOOL: on n'as ni variable dir, ni variable list par ici, faudrait préciser ce que vous voulez dire mon bon monsieur !
+			// BUM: ben j'aurais des variables list et dir, si mesdemoiselles les boxs etaient foutues de mes les envoyer en temps réél plutot que de m'envoyer un displayList quand la guerre de l'init est finie.
+			// SKOOL: mesdemoiselles les box en seraient capables si le contenu des dossiers n'était pas géré par un serveur, et donc serait fixe !
+			// Mais pensez vous qu'au niveau fonctionnalité ce serait aussi interessant ?
+			// D'autre part, mademoiselle la window n'a toujours pas integré la fonction displayWait qui a pourtant été choisie avant même sa naissance !
+			// template:dir.tpl,
+			// list : list,
+			// dropBox:box,
+			flMask:true
+		};
+		var frame ={
+			name:"fileIconListFrame",
+			link:"fileIconList",
+			type:"compo",
+			min:{w:100,h:100},
+			flBackground:true,
+			flWait:true,
+			mainStyleName:this.folderType.styleName,
+			args:args
+		}
+		this.mcFileIconList = this.main.newElement(frame)
+		this.main.bigFrame = this.main.fileIconListFrame
+	}
 
-    return false;
-  }
+	/*-----------------------------------------------------------------------
+		Function: displayList(dir)
+	 ------------------------------------------------------------------------*/	
+	function displayList(dir){
+		this.mcFileIconList.removeWait();
+		//if(dir.tpl=="default" or dir.tpl==undefined) dir.tpl = _global.userPref.getPref("icon_display_style");
+		if(dir.tpl=="default" or dir.tpl==undefined) dir.tpl = "normal";
+		//_root.test+="displayList("+dir+") template("+dir.tpl+")\n"
+		//
+		
+		//
+		switch(dir.tpl){
+			case "normal":
+				this.mcFileIconList.min.w = 200;
+				break;
+			case "mail":
+				this.mcFileIconList.min.w = 400;
+				if(dir.tplInfo==undefined){
+					//_root.test += " BIIIIP ---> tpl info manquant ! valeur d'urgence activé ! \n"
+					dir.tplInfo = {supList: this.folderType.lister};
+				}
+				break;
+			default:
+				this.mcFileIconList.min.w = 200;
+				break;			
+		}
+		//
+		var list = new Array();
+		for(var i=0; i<dir.list.length; i++){
+			var o = new Object();
+			o.param = dir.list[i];
+			if(dir.tpl=="normal"){
+				if(o.param.type == "disc" ){	
+					o.link = "fileIconFull"
+				}else{
+					o.link = "fileIconStandard"
+				}
+				
+			}else if(dir.tpl=="mail"){
+				o.link = "fileIconDetail"				
+			}else{
+				o.param.infoSupList = [
+					{name:"name",min:120}
+				]
+				o.link = "fileIconDetail"
+				
+			}
+			//_root.test+="o.link("+o.link+")\n"
+			list.push(o)
+		}
+		//this.mcFileIconList.template=dir.tpl;
+		this.mcFileIconList.updateList(list,dir.tpl,dir.tplInfo);
+		this.mcFileIconList.updateSize();
+		//this.mcFileIconList.alignIcon();
+	}
 	
-	function onWheel(delta){
-		this.window.scrollContent(-10 * delta);
+	function displayNewDirectoryFrame(){
+		if(!flNewDirectoryPanel){
+			var args = {
+				doc:new XML("<p><l h=\"24\"><i b=\"1\" v=\"dirName\" r=\"A-Za-z0-9 éàèëïêùûüâñç-+=()[]\">"+Lang.fv("explorer.new_folder")+"</i><s w=\"6\"/><b dy=\"-2\" t=\"Valider\" l=\"butPushStandard\" o=\"win\" m=\"createNewDirectory\"/></l></p>"),
+				mainStyleName:"global",
+				secondStyleName:"content"
+			};
+			var frame ={
+				name:"newDirectoryFrame",
+				link:"cpDocument",
+				type:"compo",
+				min:{w:100,h:24},
+				args:args
+			}
+			this.main.newElement(frame,"navigatorFrame");
+			this.frameSet.update();
+			this.flNewDirectoryPanel=true;
+		}else{
+			this.removeNewDirectoryPanel();
+			this.main.update();
+		}
+	}
+	
+	function removeNewDirectoryPanel(){
+		this.main.removeElement("newDirectoryFrame");
+		this.flNewDirectoryPanel=false;
+	}
+
+	function createNewDirectory(){
+		//_root.test+="createDirectorty("+this.main.newDirectoryFrame.path.card.dirName.value+")\n"
+		this.box.addFolder(this.main.newDirectoryFrame.path.card.dirName.value)
+		this.removeNewDirectoryPanel();
+		this.frameSet.update();
+	}
+	
+	function setFolderType(newFolderType){
+		var flUpdate = false;
+		if(this.flNewDirectoryPanel){
+			this.removeNewDirectoryPanel();
+			//this.main.update();
+			flUpdate = true;
+		}
+
+		if( newFolderType.styleName != this.folderType.styleName ){
+			this.folderType.styleName  = newFolderType.styleName ;
+			this.main.removeElement("fileIconListFrame");
+			this.displayExplorer();
+			
+			flUpdate = true;
+		}		
+		
+		if( newFolderType.flNewDirectory != this.folderType.flNewDirectory or newFolderType.flRemoveAll != this.folderType.flRemoveAll or newFolderType.flMail != this.folderType.flMail or newFolderType.flUp != this.folderType.flUp){
+			this.folderType.flNewDirectory  = newFolderType.flNewDirectory;
+			this.folderType.flRemoveAll  = newFolderType.flRemoveAll;
+			this.folderType.flMail = newFolderType.flMail;
+			this.folderType.flUp = newFolderType.flUp;
+			this.main.removeElement("navigatorFrame");
+			this.initNavigatorIconList();
+			this.displayNavigatorIconList();
+			flUpdate = true;
+		}
+		/*
+		newFolderType.lister = [		// HACK
+			{displayName:"Auteur",name:"from",min:140,sort:1},
+			{displayName:"Sujet",name:"name",min:200, big:true},
+			{displayName:"Date",name:"dateDsp",min:80}				
+		]
+		*/
+		if( newFolderType.lister){
+			if( this.folderType.lister == undefined ){
+				this.displayLister()
+			}
+			this.folderType.lister = newFolderType.lister;
+			this.updateLister()
+			flUpdate = true;
+		}else{
+			if( this.folderType.lister != undefined ) this.removeLister();
+			delete this.folderType.lister;
+		}
+		
+		if(flUpdate)this.frameSet.update();
+		
+		
+	}
+	
+	function displayLister(){
+		//_root.test+="displayLister\n"
+		this.margin = Standard.getMargin();
+		margin.y.ratio = 0;
+		margin.y.min = 6;
+		
+		var args = {
+			color:this.style.frFileStandard.color[0],
+			callback:{obj:this.box,method:"sortBy"}
+		};
+		var frame ={
+			name:"listerFrame",
+			link:"cpListField",
+			type:"compo",
+			flBackground:true,
+			margin:margin,
+			mainStyleName:this.folderType.styleName,
+			min:{w:200,h:16},
+			args:args
+		}
+		this.lister = this.main.newElement(frame,"navigatorFrame");
+		//_root.test+="a("+a+")\n"
+	}
+	
+	function removeLister(){
+		this.main.removeElement("listerFrame");
+	}
+	
+	function updateLister(){
+		//_root.test+="updateLister()\n"
+		//for(var elem in this.main.listerFrame)_root.test+="-"+elem+"("+this.main.listerFrame[elem]+")\n"
+		this.lister.setInfo(this.folderType.lister);
+	}
+	
+	function displayWait(){
+		this.displayList()
+		this.mcFileIconList.displayWait();
+	}
+	
+	function displayError(error){
+		//_root.test+="displayError("+error+")\n"
+		var margin = Standard.getMargin();
+		margin.y.min = 6;
+		margin.y.ratio = 0;
+		
+		var docString = "<p><l><t>"+error+"</t></l></p>"
+		var args = {
+			doc:new XML(docString),
+			flDocumentFit:true
+		};
+		var frame ={
+			name:"errorFrame",
+			link:"cpDocument",
+			type:"compo",
+			min:{w:100,h:40},
+			flBackground:true,
+			//flTrace:true,
+			mainStyleName:"frSystem",
+			margin:margin,
+			args:args
+		}
+		this.main.newElement(frame,"navigatorFrame")
+		this.frameSet.update();
+	}
+	
+	function removeError(){
+		this.main.removeElement("errorFrame");
+		this.frameSet.update();
+	}
+	
+	function displayAlert(arr){
+		this.removeAlert();
+		
+		var margin = Standard.getMargin();
+		margin.y.min = 6;
+		margin.y.ratio = 0;
+		
+		for(var i=0;i<arr.length;i++){
+			var args = {
+				doc:new XML(arr[i]),
+				flDocumentFit:true
+			};
+			var frame ={
+				name:"alertFrame"+i,
+				link:"cpDocument",
+				type:"compo",
+				min:{w:100,h:20},
+				flBackground:true,
+				mainStyleName:"frSystem",
+				margin:margin,
+				args:args
+			}
+			this.main.newElement(frame,"navigatorFrame")
+		}
+		this.nbAlertFrame = arr.length;
+		this.frameSet.update();
+	}
+	
+	function removeAlert(){
+		for(var i=0;i<this.nbAlertFrame;i++){
+			this.main.removeElement("alertFrame"+i);
+		}
+		this.nbAlertFrame = 0;
+		this.frameSet.update();
+	}
+	
+	function scrollContent(delta){
+		this.mcFileIconList.mask.y.path.pixelScroll(delta);
 	}
 //{
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

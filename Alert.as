@@ -1,82 +1,175 @@
-/*
-$Id: Alert.as,v 1.8 2003/11/20 00:01:35  Exp $
+class win.Alert extends WinStandard{//}
+	
+	var info:Object;
+	
+	/*-----------------------------------------------------------------------
+		Function: Login()
+		Constructeur
+	 ------------------------------------------------------------------------*/	
+	function Alert(){
+		//_root.test+="win.Alerto\n"
+		this.init();
+	}
+	
+	/*-----------------------------------------------------------------------
+		Function: init()
+	 ------------------------------------------------------------------------*/		
+	function init(){
+		//this.iconLabel="alert"
+		this.flResizable=false;
+		super.init();
+		
+		this.topIconList.splice(0,3);
 
-Class: box.Alert
-	_global.desktop.addBox(new box.Alert({text: "Blah!"}));
-	ou
-	_global.desktop.addBox(new box.Alert({
-		text: "Blah!",
-		butActList:[
-			{
-				name: "Oui",
-				action:	{
-					obj: truc,
-					method: "machin",
-					args: a
+		/*
+		var obj = {
+			text:"Attention ca bug !!!\n C'est affreux",
+			butList:[
+				{name:"yes",action:{}},
+				{name:"no",action:{}}
+			]
+		}
+		*/
+		if(this.info!=undefined)this.setAlert(this.info)
+		
+		this.endInit();
+		this.moveToCenter()
+	}
+
+	/*-----------------------------------------------------------------------
+		Function: pressYes()
+	 ------------------------------------------------------------------------*/		
+	function pressYes(){
+		// TODO
+	}	
+
+	/*-----------------------------------------------------------------------
+		Function: pressNo()
+	 ------------------------------------------------------------------------*/		
+	function pressNo(){
+		// TODO
+	}
+	
+	/*-----------------------------------------------------------------------
+		Function: setAlert(obj)
+		
+		Parameters:					// ANCIEN FORMAT
+			obj - object - {
+				type: "ok" | "yesno",
+				text: "Blah blah",
+				yes: {obj: obj, method: "method"},
+				no: {obj: obj, method: "method"},
+			}
+		
+		Parameters:					// JE PREFERE CE FORMAT SI CA TE DERANGE PAS TROPS	
+		obj - object - {
+			text: "Blah blah",
+			butList:[
+				{name:"yes", action:{obj:obj, method:"method"},
+				{name:"no", action:{obj:obj, method:"method"}
+			]
+		}
+	
+	
+	 ------------------------------------------------------------------------*/		
+	function setAlert(obj){
+		//_root.test+="set Alert("+obj.text+")\n"
+		
+		// BASE
+		var pageObj = {
+			pos:{x:0,y:0,w:200,h:0},
+			lineList:[
+				{	height:80,
+					list:[
+						{	type:"text",
+							param:{
+								text:obj.text,
+								fieldProperty: {html: true}
+							}
+						}
+					]
 				}
-			},
-			{
-				name: "Non",
-				action:	{
-					obj: truc,
-					method: "machin",
-					args: a
+			]
+		}
+		var args = {
+			flMask:true,
+			flBackground:true,
+			pageObj:pageObj
+		}
+		var frame = {
+			name:"frameDoc",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			min:{w:200,h:80},				
+			args:args
+		}
+		this.main.newElement( frame )
+		this.main.bigFrame = this.main.frameDoc;	
+		
+		
+		// BOUTONS
+		var pageObj = {
+			pos:{x:0,y:0,w:0,h:0},
+			lineList:[
+				{height:24,list:new Array()}
+			]
+		}
+		pageObj.lineList[0].list.push( { width:0, big:"1", type:"spacer" } )
+		for(var i=0; i<obj.butList.length;i++){
+			var o = obj.butList[i];
+			var e = {
+				type:"button",
+				param:{
+					link:"butPushStandard",
+					buttonAction:{
+						onPress:[o.action]
+					},
+					initObj:{
+						txt:o.name
+					}				
 				}
 			}
-		]
-	}));
-*/
-class box.Alert extends box.FP{
-	var text:String;
-	var butActList:Array;
-	
-	function Alert(obj){
-		for(var n in obj){
-			this[n] = obj[n];
+			pageObj.lineList[0].list.push(e)
+			pageObj.lineList[0].list.push( { width:0, big:"1", type:"spacer" } )			
 		}
-		this.winType = "winAlert";
-		if(this.title == undefined) this.title = Lang.fv("alert");
-		if(this.butActList == undefined){
-			this.butActList = [
-				{name: Lang.fv("ok"),action: {}}
-			];
+		var args = {
+			pageObj:pageObj
 		}
-	}
-	
-	function preInit(){
-		this.desktopable = true;
-		this.tabable = false;
-		super.preInit();
+		var margin = Standard.getMargin()
+		margin.y.min = 8
+		margin.y.ratio = 1
+		var frame = {
+			name:"frameButton",
+			link:"cpDocument",
+			type:"compo",
+			mainStyleName:"frSystem",
+			min:{w:200,h:24},			
+			args:args,
+			margin:margin
+		}
+		this.main.newElement( frame )
 	}
 
-	function init(slot,depth){
-		var obj = {
-			text: this.text,
-			butList: new Array()
-		};
-		for(var i=0;i<this.butActList.length;i++){
-			obj.butList.push({name: this.butActList[i].name,action: {obj: this, method: "execButAct", args: i}});
+	/*-----------------------------------------------------------------------
+		Function: setText(text)
+	 ------------------------------------------------------------------------*/		
+	/* OLD
+	function setText(text){
+		mainField.text = text
+		var sup = 6
+		if(mainField.textHeight+sup>mainField._height){
+			mainField._height = mainField.textHeight+sup
 		}
+		mid._height = mainField._height-30
+		bottom._y = mid._y+mid._height
 		
-		if(this.winOpt == undefined) this.winOpt = new Object();
-		this.winOpt.info = obj;
-
-		var rs = super.init(slot,depth);
-
-		if(rs){
-			this.window.setTitle(this.title);
-		}
-		return rs;
+		pos.h = 120 + mid._height;
 	}
+	*/
+
 	
-	function execButAct(id){
-		var o = this.butActList[id].action;
-		if(o.args instanceof Array){
-			o.obj[o.method].apply(o.obj,o.args);
-		}else{
-			o.obj[o.method](o.args);
-		}
-		this.tryToClose();
-	}
-	
+//{
 }
+
+
